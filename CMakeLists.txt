@@ -14,7 +14,6 @@ src/ImageWidget.cpp
 src/MatchWidget.cpp
 src/MatchPanel.cpp
 src/MatchPanelModel.cpp
-src/MyVtkWidget.cpp
 src/core/PlyIO.cpp
 src/CoreInterfaceWidget.cpp
 src/core/Utils.cpp
@@ -59,7 +58,6 @@ src/core/ba/v3d_vrmlio.h
 SET(HEADERS 
 src/MainWindow.h
 src/CloudWidget.h
-src/MyVtkWidget.h
 src/CoreInterfaceWidget.h
 src/ImageWidget.h
 src/MatchWidget.h

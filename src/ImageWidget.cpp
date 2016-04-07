@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #include <QtGui>
 #include <QtGlobal>
 

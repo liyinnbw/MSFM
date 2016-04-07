@@ -32,25 +32,21 @@ public:
 
 	void processBasePair();
 
-	void processAddNewCamera();
-
-	void processNext_bk();
+	void processNextPair();
 
 	bool checkMatchesBasePair(	const std::vector<cv::KeyPoint> &kpts1,
 								const std::vector<cv::KeyPoint> &kpts2,
 								const std::vector<cv::DMatch> 	&matches);
-	bool checkMatchesAddNewCamera(
-								const int						imgIdx1,	//this will be new image(tryImg)
+
+	bool checkMatchesNextPair(	const int						imgIdx1,	//this will be new image(tryImg)
 								const int						imgIdx2,	//this must be already added image (anchorImg)
 								const std::vector<cv::KeyPoint> &kpts1,
 								const std::vector<cv::KeyPoint> &kpts2,
 								const std::vector<cv::DMatch> 	&matches);
 
-	bool checkMatchesRetriangulateOld(
-								const int						imgIdx1,	//this is newly added image(tryImg)
-								const int						imgIdx2,	//this must be already added image (anchorImg)
-								const std::vector<cv::KeyPoint> &kpts1,
-								const std::vector<cv::KeyPoint> &kpts2,
+	bool checkMatchesAddNewMeasures(
+								const std::vector<cv::KeyPoint> &kpts1,		//this is the newly added image(tryImg)
+								const std::vector<cv::KeyPoint> &kpts2,		//this is an already added image
 								const std::vector<cv::DMatch> 	&matches);
 
 	void reconstructBasePair(	const int						imgIdx1,	//this will have identity camera projection
@@ -61,9 +57,7 @@ public:
 								const cv::Mat 					&decs2,
 								const std::vector<cv::DMatch> 	&matches);
 
-
-
-	void addNewCamera(			const int						imgIdx1,	//this will be new image (tryImg)
+	void reconstructNextPair(	const int						imgIdx1,	//this will be new image (tryImg)
 								const int						imgIdx2,	//this must be already added image (anchorImg)
 								const std::vector<cv::KeyPoint> &kpts1,
 								const std::vector<cv::KeyPoint> &kpts2,
@@ -71,14 +65,8 @@ public:
 								const cv::Mat 					&decs2,
 								const std::vector<cv::DMatch> 	&matches);
 
-	void retriangulateOld(		const int						imgIdx1,	//this is the newly added image (tryImg)
-								const int						imgIdx2,	//this must be already added image (anchorImg)
-								const std::vector<cv::KeyPoint> &kpts1,
-								const std::vector<cv::KeyPoint> &kpts2,
-								const cv::Mat					&decs1,
-								const cv::Mat 					&decs2,
-								const std::vector<cv::DMatch> 	&matches);
-
+	void addNewMeasures(		const int						imgIdx1,	//this is the newly added image (tryImg)
+								const int						imgIdx2);	//this must be already added image (anchorImg)
 
 	bool isGoodMatch(			const std::vector<cv::Point2f> 	&pts1,
 								const std::vector<cv::Point2f> 	&pts2,
@@ -103,10 +91,17 @@ public:
 								std::vector<cv::DMatch>			&matchesHas3D,
 								std::vector<cv::DMatch>			&matchesNo3D);
 
-	void pruneMatchesNo3D(		const int						imgIdx1,
+	void getMatchesHas3DSecondViewOnly(
+								const int						imgIdx1,
 								const int 						imgIdx2,
 								const std::vector<cv::DMatch>	&matches,
 								std::vector<cv::DMatch>			&prunedMatches);
+
+	void maskMatchesNo3D(		const int						imgIdx1,
+								const int 						imgIdx2,
+								const std::vector<cv::DMatch>	&matches,
+								std::vector<bool>				&mask);
+
 
 	void triangulate(			const std::vector<cv::Point2f> 	&pts2D1,
 								const std::vector<cv::Point2f> 	&pts2D2,
@@ -119,8 +114,6 @@ public:
 								std::vector<cv::KeyPoint> 		&kpts,
 								cv::Mat							&decs);
 
-	bool matchAndTriangulate(	const int 						tryIdx,
-								const int 						anchorIdx); //match from tryIdx to anchorIdx
 
 	void pruneHighReprojectionErrorPoints();
 
@@ -169,7 +162,7 @@ public:
 	const static int 	MIN_TRIANGULATE		= 1;
 	const static double MATCH_RATIO 		= 0.9;
 	const static int 	IMG_KEYPOINTS 		= 1000;
-	const static double HINLIER_THRESH 		= 0.5;
+	const static double HINLIER_THRESH 		= 0.4;
 	const static double HINLIER_THRESH2 	= 0.35;
 	const static float 	REPROJERROR_THRESH 	= 4.0;
 	const static float 	MIN_DIST_TO_CAM 	= 0.0;

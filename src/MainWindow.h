@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #ifndef IMAGEVIEWER_H
 #define IMAGEVIEWER_H
 
@@ -16,8 +21,6 @@ class QString;
 class MainWindow: public QMainWindow
 {
     	Q_OBJECT
-
-
 
 public:
     MainWindow();
@@ -42,30 +45,26 @@ private:
     void createToolBars();
     void createStatusBar();
 	void connectWidgets();
+	int loadFile(const QString &fileName);
 
-    QAction *openAction;
-    QAction *featureMatchAction;
-	QAction *reconstructAction;
-	QAction *bundleAdjustmentAction;
-	QAction *nextPairAction;
-	QAction *checkMatchAction;
-	QAction *saveAction;
+    QAction 				*openAction;
+    QAction 				*featureMatchAction;
+	QAction 				*reconstructAction;
+	QAction 				*bundleAdjustmentAction;
+	QAction 				*nextPairAction;
+	QAction 				*checkMatchAction;
+	QAction 				*saveAction;
 	
-	QToolBar *fileToolBar;
-    QToolBar *viewToolBar;
-    QToolBar *helpToolBar;
+	QToolBar 				*fileToolBar;
+    QToolBar 				*viewToolBar;
+    QToolBar 				*helpToolBar;
 
-    //QComboBox *imgList1;
-    //QComboBox *imgList2;
+	CloudWidget 			*cloudViewer;
+	CoreInterfaceWidget 	*coreInterface;
+	MatchPanel 				*matchPanel;
+	MatchPanelModel 		*matchPanelModel;
 
-
-    // Supporting methods
-    int loadFile(const QString &fileName);
-	CloudWidget *cloudViewer;
-	CoreInterfaceWidget *coreInterface;
-	QString 	imageRoot;
-	MatchPanel 	*matchPanel;
-	MatchPanelModel *matchPanelModel;
+	QString 				imageRoot;
 };
 
 #endif

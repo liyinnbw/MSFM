@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #ifndef CLOUDWIDGET_H
 #define CLOUDWIDGET_H
 

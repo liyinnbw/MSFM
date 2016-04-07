@@ -128,7 +128,7 @@ void SFMPipeline::getNextPair(	int &imgIdx1, 	//from
 			//match features
 			matchFeatures(decs1, decs2, matches);
 
-			successful = checkMatchesAddNewCamera(tryIdx, anchorIdx, kpts1, kpts2, matches);
+			successful = checkMatchesNextPair(tryIdx, anchorIdx, kpts1, kpts2, matches);
 
 			if(successful){
 				cout<<"total matches = "<<matches.size()<<endl;
@@ -138,7 +138,7 @@ void SFMPipeline::getNextPair(	int &imgIdx1, 	//from
 			}
 		}
 	}
-	done = true;
+	cout<<"no next pair found"<<endl;
 
 }
 
@@ -166,7 +166,7 @@ void SFMPipeline::processBasePair(){
 
 }
 
-void SFMPipeline::processAddNewCamera(){
+void SFMPipeline::processNextPair(){
 
 	int anchorIdx, tryIdx;
 	getNextPair( tryIdx, anchorIdx);
@@ -186,7 +186,7 @@ void SFMPipeline::processAddNewCamera(){
 	//match features
 	matchFeatures(decs1, decs2, matches);
 
-	addNewCamera(tryIdx, anchorIdx, kpts1, kpts2,  decs1, decs2, matches);
+	reconstructNextPair(tryIdx, anchorIdx, kpts1, kpts2,  decs1, decs2, matches);
 }
 
 bool SFMPipeline::checkMatchesBasePair(	const vector<KeyPoint> 	&kpts1,
@@ -243,7 +243,7 @@ bool SFMPipeline::checkMatchesBasePair(	const vector<KeyPoint> 	&kpts1,
 	return true;
 }
 
-bool SFMPipeline::checkMatchesAddNewCamera(	const int				imgIdx1,
+bool SFMPipeline::checkMatchesNextPair(		const int				imgIdx1,
 											const int				imgIdx2,
 											const vector<KeyPoint> 	&kpts1,
 											const vector<KeyPoint> 	&kpts2,
@@ -309,14 +309,43 @@ bool SFMPipeline::checkMatchesAddNewCamera(	const int				imgIdx1,
 	return true;
 }
 
-bool SFMPipeline::checkMatchesRetriangulateOld(
-								const int				imgIdx1,	//this is newly added image(tryImg)
-								const int				imgIdx2,	//this must be already added image (anchorImg)
-								const vector<KeyPoint> 	&kpts1,
-								const vector<KeyPoint> 	&kpts2,
-								const vector<DMatch> 	&matches)
+bool SFMPipeline::checkMatchesAddNewMeasures(
+										const vector<KeyPoint> 	&kpts1,
+										const vector<KeyPoint> 	&kpts2,
+										const vector<DMatch> 	&matches)
 {
-	assert(ptCloud.imageIsUsed(imgIdx1) && ptCloud.imageIsUsed(imgIdx2));
+	vector<Point2f> 	pts1, pts2;
+	Mat					inliers;
+
+	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
+
+	//check homography
+	double hInlier = FindHomographyInliers(pts1,pts2);
+	if(hInlier > HINLIER_THRESH){
+		cout<<" too much homography inliers: "<<hInlier<<" target: "<<HINLIER_THRESH<<endl;
+		return false;
+	}
+
+	//check minimum matches for 5 point algo
+	if(matches.size() < MIN_5PTALGO){
+		cout<<" too few matches for essential mat: "<<matches.size()<<" target: "<<MIN_5PTALGO<<endl;
+		return false;
+	}
+
+	//get camera intrinsics
+	double f = getCamFocal();
+	Point2d pp = getCamPrinciple();
+
+	//prune by fundamental mat
+	findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
+	int nonzeroCnt = countNonZero(inliers);
+
+	if(nonzeroCnt<MIN_TRIANGULATE){
+		cout<<" too few points for triangulation: "<<nonzeroCnt<<" target: "<<MIN_TRIANGULATE<<endl;
+		return false;
+	}
+
+	return true;
 }
 
 //should only be called after checkMatchesBasePair
@@ -401,7 +430,7 @@ void SFMPipeline::reconstructBasePair(	const int				imgIdx1,	//this will have id
 
 }
 
-void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
+void SFMPipeline:: reconstructNextPair(const int				imgIdx1,	//this must be a new image
 								const int				imgIdx2,	//this must be already used image
 								const vector<KeyPoint> 	&kpts1,
 								const vector<KeyPoint> 	&kpts2,
@@ -412,11 +441,12 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	assert(!(ptCloud.imageIsUsed(imgIdx1)) && ptCloud.imageIsUsed(imgIdx2));
 
 	vector<Point2f> 	pts1,	pts2;
-	vector<int> 		ptIdx1,	ptIdx2, pts3DIdxs, pts3DIdxsGood;
-	vector<Point3f>		pts3D, pts3DGood;
-	vector<DMatch> 		prunedMatches, matchesHas3D, matchesNo3D, matches3DGood, matchesNo3DGood;
+	vector<int> 		ptIdxs1,	ptIdxs2, pts3DIdxs, usedImgIdxs;
+	vector<Point3f>		pts3D,	pts3DGood, pts3DAdd;
+	vector<DMatch> 		prunedMatches, prunedMatches2, matchesHas3D, matchesNo3D, matchesAdd;
 	Mat 				E, R, rvec, t, inliers;
 	Matx34d 			P1, P2;
+	vector<bool>		no3DMask;
 
 	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
 
@@ -445,8 +475,8 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	assert(matchesHas3D.size()>=MIN_3D4PNP);
 
 	//get those 3D points
-	Utils::Matches2Indices(matchesHas3D, ptIdx1,ptIdx2);
-	ptCloud.get3DfromImage2D(imgIdx2,ptIdx2,pts3D, pts3DIdxs);
+	Utils::Matches2Indices(matchesHas3D, ptIdxs1,ptIdxs2);
+	ptCloud.get3DfromImage2D(imgIdx2,ptIdxs2,pts3D, pts3DIdxs);
 	//get corresponding 2D points in the tryImage, we'll only use pts1
 	Utils::Matches2Points(kpts1,kpts2,matchesHas3D,pts1,pts2);
 	//solve PnP for the try image camera pose (this step is different from base pair)
@@ -457,17 +487,6 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	double confidence		= PNP_CONFIDENCE;
 	int flags				= SOLVEPNP_ITERATIVE;
 	solvePnPRansac(pts3D,pts1,camMat,distortionMat,rvec,t,useExtrinsicGuess,iterationsCount,reprojectionError,confidence,inliers,flags);
-	for(int i=0; i<inliers.rows; i++){
-		int val = (int)inliers.at<int>(i); //pnpInlierType = int
-		if(val){
-			matches3DGood.push_back(matchesHas3D[i]);
-			pts3DIdxsGood.push_back(pts3DIdxs[i]);
-		}
-	}
-	int cnt = countNonZero(inliers);
-	cout<<cnt<<"/"<<inliers.rows<<" good pnp"<<endl;
-	assert(cnt == matches3DGood.size() && cnt == pts3DIdxsGood.size());
-
 
 
 	//get camera poses
@@ -475,21 +494,6 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	P1 = 	Matx34d(R.at<double>(0,0),	R.at<double>(0,1),	R.at<double>(0,2),	t.at<double>(0),
 					R.at<double>(1,0),	R.at<double>(1,1),	R.at<double>(1,2),	t.at<double>(1),
 					R.at<double>(2,0),	R.at<double>(2,1),	R.at<double>(2,2),	t.at<double>(2));
-	ptCloud.getImageCamMat(imgIdx2,P2);
-
-	//triangulate matches which had no 3D correspondences
-	Utils::Matches2Points(kpts1,kpts2,matchesNo3D,pts1,pts2);
-	triangulate(pts1,pts2,P1,P2,pts3D,inliers);
-
-	assert(matchesNo3D.size() == pts3D.size() && pts3D.size() == inliers.cols);
-	for(int i=0; i<inliers.cols; i++){	//type 0, size 1*n
-		unsigned int val = (unsigned int)inliers.at<uchar>(i);
-		if(val){
-			matchesNo3DGood.push_back(matchesNo3D[i]);
-			pts3DGood.push_back(pts3D[i]);
-		}
-	}
-
 
 	//update ptCloud -- 2D
 	ptCloud.add2D(imgIdx1,kpts1,decs1);
@@ -497,19 +501,50 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	//update ptCloud -- camMat
 	ptCloud.addCamMat(imgIdx1,P1);
 
-	//update ptCloud -- 3D, add new points and update old points
+	cout<<"new camera added"<<endl;
+
+	//check with old views to update points already seen, prioritize update with imgIdx2
+	addNewMeasures(imgIdx1, imgIdx2);
+	ptCloud.getUsedImageIdxs(usedImgIdxs);
+	for(int i=usedImgIdxs.size()-1; i>=0; i--){
+		int usedImgIdx = usedImgIdxs[i];
+		if(usedImgIdx != imgIdx1 && usedImgIdx != imgIdx2){
+			addNewMeasures(imgIdx1, usedImgIdx);
+		}
+	}
+
+	//get cameras
+	ptCloud.getImageCamMat(imgIdx1,P1);
+	ptCloud.getImageCamMat(imgIdx2,P2);
+	//triangulate all prunedMatches, including those with 3D
+	Utils::Matches2Points(kpts1,kpts2,prunedMatches,pts1,pts2);
+	triangulate(pts1,pts2,P1,P2,pts3D,inliers);
+	assert(prunedMatches.size() == pts3D.size() && pts3D.size() == inliers.cols);
+	for(int i=0; i<inliers.cols; i++){	//type 0, size 1*n
+		unsigned int val = (unsigned int)inliers.at<uchar>(i);
+		if(val){
+			prunedMatches2.push_back(prunedMatches[i]);
+			pts3DGood.push_back(pts3D[i]);
+		}
+	}
+
+	//get matches still having no 3D correspondences
+	maskMatchesNo3D(imgIdx1, imgIdx2, prunedMatches2, no3DMask);
+	assert(prunedMatches2.size() == no3DMask.size() && pts3DGood.size() == no3DMask.size());
+	for(int i=0; i<no3DMask.size(); i++){
+		if(no3DMask[i]){
+			matchesAdd.push_back(prunedMatches2[i]);
+			pts3DAdd.push_back(pts3DGood[i]);
+		}
+	}
+	//update ptCloud -- 3D, add new points
 	int cloudSizeOld = ptCloud.pt3Ds.size();
-
-	Utils::Matches2Indices(matchesNo3DGood, ptIdx1, ptIdx2);
-	ptCloud.add3D(imgIdx1, imgIdx2, pts3DGood, ptIdx1, ptIdx2);
-	Utils::Matches2Indices(matches3DGood, ptIdx1, ptIdx2);
-	ptCloud.update3D(imgIdx1, pts3DIdxsGood, ptIdx1);
-
+	Utils::Matches2Indices(matchesAdd, ptIdxs1, ptIdxs2);
+	ptCloud.add3D(imgIdx1, imgIdx2, pts3DAdd, ptIdxs1, ptIdxs2);
 	int cloudSizeNew = ptCloud.pt3Ds.size();
 
 	cout<<"["<<imgIdx1<<"]"<<ptCloud.imgs[imgIdx1]<<" & "<<"["<<imgIdx2<<"]"<<ptCloud.imgs[imgIdx2];
-	cout<<"\t cloud size = "<<cloudSizeNew<<" ("<<(cloudSizeNew-cloudSizeOld)<<" new)";
-	cout<<"\t updated = "<<matches3DGood.size()<<endl;
+	cout<<"\t cloud size = "<<cloudSizeNew<<" ("<<(cloudSizeNew-cloudSizeOld)<<" new)"<<endl;
 
 	lastAddedImgIdx = imgIdx1;
 	if(lastAddedImgIdx>=ptCloud.imgs.size()-1){
@@ -517,32 +552,38 @@ void SFMPipeline:: addNewCamera(const int				imgIdx1,	//this must be a new image
 	}
 }
 
-void SFMPipeline:: retriangulateOld(	const int				imgIdx1,	//this is the newly used image (tryImg)
-										const int				imgIdx2,	//this must be already used image (anchorImg)
-										const vector<KeyPoint> 	&kpts1,
-										const vector<KeyPoint> 	&kpts2,
-										const Mat				&decs1,
-										const Mat 				&decs2,
-										const vector<DMatch> 	&matches)
+void SFMPipeline:: addNewMeasures(	const int				imgIdx1,	//this is the newly used image (tryImg)
+										const int				imgIdx2)	//this must be already used image (anchorImg)
 {
 	assert(ptCloud.imageIsUsed(imgIdx1) && ptCloud.imageIsUsed(imgIdx2));
 
-	//declare feature matching variables
+	//declare variables
+	vector<KeyPoint> 	kpts1,	kpts2;
 	vector<Point2f> 	pts1,	pts2;
-	vector<int> 		ptIdx1,	ptIdx2, pts3DIdxs, pts3DIdxsGood;
-	vector<Pt3D>		ptCloud3Ds;
-	vector<Point3f>		pts3D, pts3DGood;
-	vector<DMatch> 		prunedMatches, matchesHas3D, matchesNo3D, matches3DGood, matchesNo3DGood;
-	Mat					triangulationGood; //cv_8u
-	Mat 				E, R, rvec, t, inliers;
+	Mat 				decs1, 	decs2;
+	vector<DMatch> 		matches, prunedMatches, prunedMatches2, matchesToUpdate;
+	bool 				successful;
+	Mat 				inliers;
 	Matx34d 			P1, P2;
+	vector<Point3f>		pts3D, pts3DGood;
+	vector<int>			pts3DIdxs, ptIdxs1,ptIdxs2;
+
+	//get features
+	getKptsAndDecs(imgIdx1,	kpts1,decs1);
+	getKptsAndDecs(imgIdx2,	kpts2,decs2);
+
+	//match features
+	matchFeatures(decs1, decs2, matches);
+
+	successful = checkMatchesAddNewMeasures(kpts1, kpts2, matches);
+	if(!successful) return;
 
 	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
 
 	//get camera intrinsics
 	double f = getCamFocal();
 	Point2d pp = getCamPrinciple();
-	E = findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
+	findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
 	for(int i=0; i<inliers.rows; i++){
 		unsigned int val = (unsigned int)inliers.at<uchar>(i);
 		if(val){
@@ -550,199 +591,33 @@ void SFMPipeline:: retriangulateOld(	const int				imgIdx1,	//this is the newly u
 		}
 	}
 
-	separateMatches(imgIdx2, true, prunedMatches, matchesHas3D, matchesNo3D);
+	Utils::Matches2Points(kpts1,kpts2,prunedMatches,pts1,pts2);
 
-
-	//get matches with no 3D correspondences yet
-	pruneMatchesNo3D(imgIdx1, imgIdx2, prunedMatches,matchesNo3D);
-
-	if(matchesNo3D.size()<MIN_TRIANGULATE){
-		//totally fine if no new 3D points to be added, just return scilently
-		return;
-	}
-
-	//get camera poses
+	//get cameras
 	ptCloud.getImageCamMat(imgIdx1,P1);
 	ptCloud.getImageCamMat(imgIdx2,P2);
 
-	//triangulate matches which had no 3D correspondences
-	Utils::Matches2Points(kpts1,kpts2,matchesNo3D,pts1,pts2);
-	triangulate(pts1,pts2,P1,P2,pts3D,triangulationGood);
-	assert(matchesNo3D.size() == pts3D.size() && pts3D.size() == triangulationGood.cols);
-	for(int i=0; i<triangulationGood.cols; i++){	//type 0, size 1*n
-		unsigned int val = (unsigned int)triangulationGood.at<uchar>(i);
+	//inliers do both cheiralityCheck and reprojectionErrorCheck
+	triangulate(pts1,pts2,P1,P2,pts3D,inliers);
+	assert(inliers.cols == prunedMatches.size());
+	for(int i=0; i<inliers.cols; i++){	//type 0, size 1*n
+		unsigned int val = (unsigned int)inliers.at<uchar>(i);
 		if(val){
-			matchesNo3DGood.push_back(matchesNo3D[i]);
+			prunedMatches2.push_back(prunedMatches[i]);
 			pts3DGood.push_back(pts3D[i]);
 		}
 	}
 
-	//update ptCloud -- 3D, add new points
-	Utils::Matches2Indices(matchesNo3DGood, ptIdx1, ptIdx2);
-	ptCloud.add3D(imgIdx1, imgIdx2, pts3DGood, ptIdx1, ptIdx2);
+	getMatchesHas3DSecondViewOnly(imgIdx1, imgIdx2, prunedMatches2, matchesToUpdate);
+	Utils::Matches2Indices(matchesToUpdate, ptIdxs1,	ptIdxs2);
 
-	//TODO: matches alreay has 3D should also be updated, but only for matches seeing consistent 3D points
+	ptCloud.get3DfromImage2D(imgIdx2,ptIdxs2, pts3D, pts3DIdxs);
+	ptCloud.update3D(imgIdx1, pts3DIdxs, ptIdxs1);
+
+	cout<<"added "<<matchesToUpdate.size()<<" measures from ["<<imgIdx1<<"]"<<ptCloud.imgs[imgIdx1]<<" to 3D points seen by "<<"["<<imgIdx2<<"]"<<ptCloud.imgs[imgIdx2]<<endl;
+
 }
 
-
-void SFMPipeline::processNext_bk(){
-	if (lastAddedImgIdx == -1 || done){
-		return;
-	}
-	int previousCloudSize = ptCloud.pt3Ds.size();
-	int anchorIdx = lastAddedImgIdx;
-	for(int tryIdx = lastAddedImgIdx+1; tryIdx < ptCloud.imgs.size(); tryIdx++){
-
-		bool isSuccessful = matchAndTriangulate(tryIdx, anchorIdx);
-		if(!isSuccessful) continue;
-
-		vector<int> usedImageIdxs;
-		ptCloud.getUsedImageIdxs(usedImageIdxs);
-		for(int i = 0; i<usedImageIdxs.size(); i++){
-
-			if(usedImageIdxs[i] == tryIdx || usedImageIdxs[i] == anchorIdx) continue;
-			matchAndTriangulate(tryIdx, usedImageIdxs[i]);
-
-		}
-		cout<<"["<<tryIdx<<"]"<<ptCloud.imgs[tryIdx]<<" & ["<<anchorIdx<<"]"<<ptCloud.imgs[anchorIdx];
-		cout<<"cloud size = "<<ptCloud.pt3Ds.size()<<"("<<ptCloud.pt3Ds.size() - previousCloudSize<<" new)"<<endl;
-		lastAddedImgIdx = tryIdx;
-		break;
-	}
-	if(lastAddedImgIdx == ptCloud.imgs.size()-1){
-		done = true;
-	}
-	if(lastAddedImgIdx == anchorIdx){
-		perror("no match found for anchor idx "+anchorIdx);
-		done = true;
-	}
-}
-
-
-
-bool SFMPipeline::matchAndTriangulate(	const int 				tryIdx,
-										const int 				anchorIdx)
-{
-
-	//declare feature matching variables
-	vector<KeyPoint> 	kpts1,	kpts2;
-	vector<Point2f> 	pts1,	pts2;
-	vector<int> 		matchedPtIdxs1,	matchedPtIdxs2, pts3DIdxs, pts3DIdxsGood;
-	vector<Pt3D>		ptCloud3Ds;
-	vector<Point3f>		pts3D, pts3DGood;
-	Mat 				decs1, 	decs2;
-	vector<DMatch> 		matches, prunedMatches, matchesHas3D, matchesNo3D, matches3DGood, matchesNo3DGood;
-	Mat					triangulationGood; //cv_8u
-	Mat E, R, rvec, t, inliers;
-	Matx34d P1, P2;
-
-	//compute features
-	getKptsAndDecs(tryIdx,		kpts1,decs1);
-	getKptsAndDecs(anchorIdx,	kpts2,decs2);
-
-	//match features
-	matchFeatures(decs1, decs2, matches);
-
-	//check homography
-	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
-	double homoThresh = HINLIER_THRESH;
-	if(!isGoodMatch(pts1,pts2,homoThresh)){
-		return false;
-	}
-	//check minimum matches for 5 point algo
-	if(matches.size() < 6){
-		return false;
-	}
-
-	//prune matches by essential mat
-	findEandPruneMatches(pts1,pts2,matches,prunedMatches,E);
-
-
-	//get try image camera pose
-	if(!ptCloud.imageIsUsed(tryIdx)){
-
-		double f = getCamFocal();
-		Point2d pp = getCamPrinciple();
-		recoverPose(E, pts1, pts2, R, t, f, pp, inliers);
-		Rodrigues(R,rvec);
-
-		//separate matches by checking if the matched point in anchor image already has a 3D point in cloud
-		//the second input true is to specify using train idx of the match
-		separateMatches(anchorIdx, true, prunedMatches, matchesHas3D, matchesNo3D);
-
-		//check if have sufficient 3D points for solvePnP
-		if(matchesHas3D.size()<MIN_3D4PNP){
-			return false;
-		}
-		//get those 3D points
-		Utils::Matches2Indices(matchesHas3D, matchedPtIdxs1,matchedPtIdxs2);
-		ptCloud.get3DfromImage2D(anchorIdx,matchedPtIdxs2,pts3D, pts3DIdxs);
-		//get corresponding 2D points in the tryImage
-		Utils::Matches2Points(kpts1,kpts2,matchesHas3D,pts1,pts2);
-		//solve PnP for the try image camera pose (this step is different from base pair)
-		//solvePnP(pts3D,pts1,camMat,distortionMat,rvec,t);
-		bool useExtrinsicGuess=true;
-		int iterationsCount=100;
-		float reprojectionError=8.0f;
-		double confidence=0.99;
-		Mat pnpInliers;
-		int flags= SOLVEPNP_ITERATIVE;
-		solvePnPRansac(pts3D,pts1,camMat,distortionMat,rvec,t,useExtrinsicGuess,iterationsCount,reprojectionError,confidence,pnpInliers,flags);
-		for(int i=0; i<pnpInliers.rows; i++){
-			int val = (int)pnpInliers.at<int>(i); //pnpInlierType = int
-			if(val){
-				matches3DGood.push_back(matchesHas3D[i]);
-				pts3DIdxsGood.push_back(pts3DIdxs[i]);
-			}
-		}
-		assert(countNonZero(pnpInliers) == matches3DGood.size() && countNonZero(pnpInliers) == pts3DIdxsGood.size());
-
-
-		Rodrigues(rvec,R);
-		P1 = 	Matx34d(R.at<double>(0,0),	R.at<double>(0,1),	R.at<double>(0,2),	t.at<double>(0),
-						R.at<double>(1,0),	R.at<double>(1,1),	R.at<double>(1,2),	t.at<double>(1),
-						R.at<double>(2,0),	R.at<double>(2,1),	R.at<double>(2,2),	t.at<double>(2));
-
-
-	}else{
-		//get matches with no 3D correspondences yet
-		pruneMatchesNo3D(tryIdx, anchorIdx, prunedMatches,matchesNo3D);
-		ptCloud.getImageCamMat(tryIdx,P1);
-	}
-
-	//get anchor image camera pose
-	ptCloud.getImageCamMat(anchorIdx,P2);
-
-	//triangulate matches which had no 3D correspondences
-	Utils::Matches2Points(kpts1,kpts2,matchesNo3D,pts1,pts2);
-	triangulate(pts1,pts2,P1,P2,pts3D,triangulationGood);
-	assert(matchesNo3D.size() == pts3D.size() && pts3D.size() == triangulationGood.cols);
-	for(int i=0; i<triangulationGood.cols; i++){	//type 0, size 1*n
-		unsigned int val = (unsigned int)triangulationGood.at<uchar>(i);
-		if(val){
-			matchesNo3DGood.push_back(matchesNo3D[i]);
-			pts3DGood.push_back(pts3D[i]);
-		}
-	}
-
-
-	if(!ptCloud.imageIsUsed(tryIdx)){
-		//update ptCloud -- 2D
-		ptCloud.add2D(tryIdx,kpts1,decs1);
-
-		//update ptCloud -- camMat
-		ptCloud.addCamMat(tryIdx,P1);
-
-		Utils::Matches2Indices(matches3DGood, matchedPtIdxs1,matchedPtIdxs2);
-		ptCloud.update3D(tryIdx, pts3DIdxsGood, matchedPtIdxs1);
-	}
-
-	//update ptCloud -- 3D, add new points and update old points
-	Utils::Matches2Indices(matchesNo3DGood, matchedPtIdxs1, matchedPtIdxs2);
-	ptCloud.add3D(tryIdx, anchorIdx, pts3DGood, matchedPtIdxs1, matchedPtIdxs2);
-
-	return true;
-}
 
 void SFMPipeline::reprojectionErrorCheck(
 								const vector<Point3f> 	&pts3D,
@@ -1032,10 +907,13 @@ void SFMPipeline::separateMatches(		const int				imageIdx,
 		}
 	}
 }
-void SFMPipeline::pruneMatchesNo3D(	const int imgIdx1,
-									const int imgIdx2,
-									const vector<DMatch> &matches,
-									vector<DMatch> &prunedMatches){
+
+void SFMPipeline::getMatchesHas3DSecondViewOnly(
+									const int				imgIdx1,
+									const int 				imgIdx2,
+									const vector<DMatch>	&matches,
+									vector<DMatch>			&prunedMatches)
+{
 	//check
 	assert(ptCloud.imageIsUsed(imgIdx1));
 	assert(ptCloud.imageIsUsed(imgIdx2));
@@ -1048,12 +926,35 @@ void SFMPipeline::pruneMatchesNo3D(	const int imgIdx1,
 	ptCloud.checkImage2Dfor3D(imgIdx1, matchedPtIdxs1, has3D1);
 	ptCloud.checkImage2Dfor3D(imgIdx2, matchedPtIdxs2, has3D2);
 	for(int i=0; i<matches.size(); i++){
-		if(!has3D1[i] && !has3D2[i]){
-			//keep if both matched points does not have a correspondence in the 3d cloud
+		if(!has3D1[i] && has3D2[i]){
+			//keep only if img2 has a correspondence in the 3d cloud
 			prunedMatches.push_back(matches[i]);
 		}
 	}
 }
+
+void SFMPipeline::maskMatchesNo3D(	const int				imgIdx1,
+									const int 				imgIdx2,
+									const vector<DMatch>	&matches,
+									vector<bool>			&mask)
+{
+	//check
+	assert(ptCloud.imageIsUsed(imgIdx1));
+	assert(ptCloud.imageIsUsed(imgIdx2));
+
+	mask.clear();
+	mask.reserve(matches.size());
+	vector<int> 	matchedPtIdxs1, matchedPtIdxs2;
+	vector<bool> 	has3D1, has3D2;
+	//get point indices from the match
+	Utils::Matches2Indices(matches, matchedPtIdxs1,matchedPtIdxs2);
+	ptCloud.checkImage2Dfor3D(imgIdx1, matchedPtIdxs1, has3D1);
+	ptCloud.checkImage2Dfor3D(imgIdx2, matchedPtIdxs2, has3D2);
+	for(int i=0; i<matches.size(); i++){
+		mask.push_back(!has3D1[i] && !has3D2[i]);
+	}
+}
+
 void SFMPipeline::bundleAdjustment(){
 	BAHandler BA;
 	BA.adjustBundle(ptCloud,camMat,distortionMat);

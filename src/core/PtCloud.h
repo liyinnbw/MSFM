@@ -50,9 +50,9 @@ public:
 	void addCamMat(				int							imgIdx,
 								cv::Matx34d					&camMat);
 
-	void update3D(				int 						imgIdx,
-								std::vector<int> 			&pt3Didxs,
-								std::vector<int> 			&img2Didxs);
+	void update3D(				const int 					imgIdx,
+								const std::vector<int> 		&pt3Didxs,
+								const std::vector<int> 		&img2Didxs);
 
 	void getImageFeatures(		const int 					imgIdx,
 								std::vector<cv::KeyPoint>	&kpts,

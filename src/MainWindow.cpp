@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #include <QtGui>
 
 #include <opencv2/core/core.hpp>
@@ -7,7 +12,6 @@
 #include "MainWindow.h"
 #include "CloudWidget.h"
 #include "CoreInterfaceWidget.h"
-#include "MyVtkWidget.h"
 #include "ImageWidget.h"
 #include "MatchWidget.h"
 #include "MatchPanel.h"

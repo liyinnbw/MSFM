@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #ifndef COREINTERFACEWIDGET_H
 #define COREINTERFACEWIDGET_H
 

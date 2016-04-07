@@ -1,4 +1,7 @@
-// main.cpp
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
 
 #include <QApplication>
 #include "MainWindow.h"

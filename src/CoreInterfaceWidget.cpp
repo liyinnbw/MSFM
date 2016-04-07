@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #include <QtGui>
 #include <QDebug>
 
@@ -68,8 +73,8 @@ void TaskThread::run(){
 			}else{
 				//mCore->processAddNewCamera();
 
-				if(mCore->checkMatchesAddNewCamera(mImgIdx1, mImgIdx2, kpts1,kpts2,maskedMatches)){
-					mCore->addNewCamera(mImgIdx1, mImgIdx2, kpts1, kpts2, decs1, decs2, maskedMatches);
+				if(mCore->checkMatchesNextPair(mImgIdx1, mImgIdx2, kpts1,kpts2,maskedMatches)){
+					mCore->reconstructNextPair(mImgIdx1, mImgIdx2, kpts1, kpts2, decs1, decs2, maskedMatches);
 				}
 
 			}
@@ -287,7 +292,7 @@ void CoreInterfaceWidget::checkMatch(const QList<bool> &mask){
 		}
 
 	}else{
-		if(!(core->checkMatchesAddNewCamera(imgIdx1, imgIdx2, kpts1,kpts2,maskedMatches))){
+		if(!(core->checkMatchesNextPair(imgIdx1, imgIdx2, kpts1,kpts2,maskedMatches))){
 			QMessageBox messageBox;
 			messageBox.critical(0,"Error","check failed!");
 		}

@@ -1,3 +1,8 @@
+/*
+ *  Created on: Mar 11, 2016
+ *      Author: yoyo
+ */
+
 #ifndef IMAGEWIDGET_H
 #define IMAGEWIDGET_H
 

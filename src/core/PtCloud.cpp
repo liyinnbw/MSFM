@@ -129,9 +129,9 @@ void PtCloud::addCamMat(	int			imgIdx,
 	img2camMat[imgIdx] = camMats.size()-1;
 }
 
-void PtCloud::update3D(	int 			imgIdx,
-						vector<int> 	&pt3Didxs,
-						vector<int> 	&img2Didxs){
+void PtCloud::update3D(	const int 			imgIdx,
+						const vector<int> 	&pt3Didxs,
+						const vector<int> 	&img2Didxs){
 
 	//checks
 	assert(pt3Didxs.size() == img2Didxs.size());
@@ -143,7 +143,11 @@ void PtCloud::update3D(	int 			imgIdx,
 		//update 3d point's pt2D_idx
 		int pt2D_idx	= pt2Didxs[img2Didxs[i]];
 		int pt3D_idx	= pt3Didxs[i];
-		assert(pt3Ds[pt3D_idx].img2ptIdx.find(imgIdx) == pt3Ds[pt3D_idx].img2ptIdx.end());
+		if(pt3Ds[pt3D_idx].img2ptIdx.find(imgIdx) != pt3Ds[pt3D_idx].img2ptIdx.end()){
+			//this occurs when adding a correspondence from a picture that already has another point corresponding to this 3D point
+			//TODO: how shall we decide which one to keep? now it is First come First
+			continue;
+		}
 		pt3Ds[pt3D_idx].img2ptIdx[imgIdx] = img2Didxs[i];
 		pt3Ds[pt3D_idx].img2error[imgIdx] = 0.0f;
 
