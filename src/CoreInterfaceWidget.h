@@ -85,6 +85,7 @@ public:
 	CoreInterfaceWidget();
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
+	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
 	bool coreIsSet(){return core!=NULL;}
 	void nextPair();
 	void checkMatch(const QList<bool> &);

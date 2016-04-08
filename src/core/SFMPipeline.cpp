@@ -249,7 +249,10 @@ bool SFMPipeline::checkMatchesNextPair(		const int				imgIdx1,
 											const vector<KeyPoint> 	&kpts2,
 											const vector<DMatch> 	&matches)
 {
-	assert(!(ptCloud.imageIsUsed(imgIdx1)) && ptCloud.imageIsUsed(imgIdx2));
+	if(ptCloud.imageIsUsed(imgIdx1) || !ptCloud.imageIsUsed(imgIdx2)){
+		cout<<"MATCH CHECK FAILURE:first image must be not used and second image must be used"<<endl;
+		return false;
+	}
 
 	vector<Point2f> 	pts1, pts2;
 	vector<DMatch> 		prunedMatches, prunedMatches2, matchesHas3D, matchesNo3D;
@@ -1088,6 +1091,16 @@ void SFMPipeline::writePLY(string addOn){
 	//write point cloud to .ply file
 	myfile <<"ply"<<endl;
 	myfile <<"format ascii 1.0"<<endl;
+
+	//write descriptors
+	vector<Mat> decs;
+	ptCloud.getAverageDecs(decs);
+	assert(decs.size() == pts.size());
+	myfile <<"comment cloudSize: "<<decs.size()<<endl;
+	for(int i=0; i<decs.size(); i++){
+		myfile <<"comment dec: "<<i<<" "<<decs[i]<<endl;
+	}
+
 	myfile <<"element vertex "<<pts.size()+numCameras*4<<endl;
 	myfile <<"property float x"<<endl;
 	myfile <<"property float y"<<endl;

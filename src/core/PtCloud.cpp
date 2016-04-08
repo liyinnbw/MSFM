@@ -253,6 +253,34 @@ void PtCloud::getXYZs( 			vector<Point3f>		&xyzs){
 		xyzs.push_back(pt3Ds[i].pt);
 	}
 }
+
+void PtCloud::getAverageDecs( 	vector<Mat> 		&decs){
+	decs.clear();
+	decs.reserve(pt3Ds.size());
+	for(int i=0; i<pt3Ds.size(); i++){
+		Mat avgDec;
+		getAverageDecAtPt3DIdx(i,avgDec);
+		decs.push_back(avgDec);
+	}
+}
+
+void PtCloud::getAverageDecAtPt3DIdx(	const int		idx,
+										Mat				&averageDec){
+	averageDec = Mat();
+	map<int,int> img2ptIdx = pt3Ds[idx].img2ptIdx;
+	for(map<int, int>::iterator i = img2ptIdx.begin(); i != img2ptIdx.end(); i++) {
+		int imgIdx 	= (*i).first;
+		int imgPtIdx= (*i).second;
+		int pt2Didx = img2pt2Ds[imgIdx][imgPtIdx];
+		if(averageDec.rows == 0 && averageDec.cols == 0){
+			averageDec = pt2Ds[pt2Didx].dec;
+		}else{
+			averageDec+=pt2Ds[pt2Didx].dec;
+		}
+	}
+	averageDec/=img2ptIdx.size();
+}
+
 void PtCloud::get2DsHave3D(		vector<Point2f> 	&xys,
 								vector<int>			&imgIdxs,
 								vector<int>			&pt3DIdxs){

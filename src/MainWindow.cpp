@@ -191,6 +191,11 @@ void MainWindow::displayPointCloud(){
 	cloudViewer->loadCloud(xyzs);
 	statusBar()->showMessage(tr("cloud loaded"));
 	
+	//also update imgList2 to include only used images
+	vector<int>	useImgIdxs;
+	coreInterface->getUsedImageIdxs(useImgIdxs);
+	matchPanel->handleImageUsed(useImgIdxs);
+
 }
 
 void MainWindow::displayMatchResult(){

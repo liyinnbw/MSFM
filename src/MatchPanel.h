@@ -34,6 +34,7 @@ public:
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getSelectedImages(int &idx1, int &idx2);
 	void getMask(QList<bool> &);
+	void handleImageUsed(std::vector<int> &usedImgIdxs);
 
 
 private:

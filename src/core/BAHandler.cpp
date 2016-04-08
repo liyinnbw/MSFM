@@ -57,6 +57,7 @@ void BAHandler::adjustBundle(	PtCloud &ptCloud,
 	vector<Point2f> 	xys;
 	vector<int>			imgIdxs;
 	vector<int>			pt3DIdxs;
+	double ppx,ppy;
 	double 	meanErrorBefore, meanErrorAfter;
 	ptCloud.get2DsHave3D(xys,imgIdxs,pt3DIdxs);
 
@@ -78,6 +79,9 @@ void BAHandler::adjustBundle(	PtCloud &ptCloud,
 	KMat[0][1] = cam_matrix.at<double>(0,1); //skew
 	KMat[0][2] = cam_matrix.at<double>(0,2); //ppx
 	KMat[1][2] = cam_matrix.at<double>(1,2); //ppy
+
+	ppx = KMat[0][2];
+	ppy = KMat[1][2];
 
 	double const f0 = KMat[0][0];
 
@@ -207,5 +211,6 @@ void BAHandler::adjustBundle(	PtCloud &ptCloud,
 	}
 
 	cout<<"focal :"<<f0<<" -> "<<Knew[0][0]<<endl;
+	cout<<"center:("<<ppx<<","<<ppy<<") -> ("<<Knew[0][2]<<","<<Knew[1][2]<<")"<<endl;
 	cout<<"error :"<<meanErrorBefore<<" -> "<<meanErrorAfter<<endl;
 }

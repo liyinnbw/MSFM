@@ -36,6 +36,9 @@ void MatchPanel::createWidgets(){
 	QScrollArea *scrollArea2= new QScrollArea;
 	QScrollArea *scrollArea3= new QScrollArea;
 
+	imgList1->setMaxVisibleItems(10);	//limit list dropdown size to 10
+	imgList2->setMaxVisibleItems(10);	//limit list dropdown size to 10
+
 	scrollArea1->setWidget(imageView1);
 	scrollArea2->setWidget(imageView2);
 	scrollArea3->setWidget(matchView);
@@ -112,6 +115,15 @@ void MatchPanel::handleDelete(){
 	imageView1->deleteSelected();
 	imageView2->deleteSelected();
 	matchView ->deleteSelected();
+}
+
+void MatchPanel::handleImageUsed(std::vector<int> &usedImgIdxs){
+
+	for(int i=0; i<usedImgIdxs.size(); i++){
+		imgList1->setItemData(usedImgIdxs[i]+1, Qt::yellow, Qt::TextColorRole);
+		imgList2->setItemData(usedImgIdxs[i]+1, Qt::yellow, Qt::TextColorRole);
+	}
+
 }
 
 void MatchPanel::getSelectedImages(int &idx1, int &idx2){

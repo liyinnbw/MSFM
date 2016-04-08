@@ -80,6 +80,11 @@ public:
 
 	void getXYZs( 				std::vector<cv::Point3f>	&xyzs);
 
+	void getAverageDecs( 		std::vector<cv::Mat> 		&decs);
+
+	void getAverageDecAtPt3DIdx(const int					idx,
+								cv::Mat 					&averageDec);
+
 	void get2DsHave3D(			std::vector<cv::Point2f> 	&xys,
 								std::vector<int>			&imgIdxs,
 								std::vector<int>			&pt3DIdxs);

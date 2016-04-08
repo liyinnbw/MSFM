@@ -307,6 +307,15 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	core-> ptCloud.getXYZs(xyzs);
 }
 
+void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	core->ptCloud.getUsedImageIdxs(usedImgIdxs);
+}
+
 void CoreInterfaceWidget::saveCloud(){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
