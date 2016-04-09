@@ -964,108 +964,23 @@ void SFMPipeline::bundleAdjustment(){
 }
 
 void SFMPipeline::computeMeanReprojectionError(){
-	int N = ptCloud.pt3Ds.size();
-	int M = ptCloud.camMats.size();
-	float meanProjectionError = 0.0f;
-	int   totalProjections 	  = 0;
-	vector<vector<Point3f> >cam2pt3Ds(M,vector<Point3f>());
-	vector<vector<Point2f> >cam2pt2Ds(M,vector<Point2f>());
-
-
-	for(int i=0; i<N; i++){
-		map<int, int> img2ptIdx = ptCloud.pt3Ds[i].img2ptIdx;
-		Point3f xyz	= ptCloud.pt3Ds[i].pt;
-		for(map<int, int>::iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
-			int imgIdx 	= (*j).first;
-			int camIdx 	= ptCloud.img2camMat[imgIdx];
-			int pt2DIdx	= ptCloud.img2pt2Ds[imgIdx][(*j).second];
-			Point2f xy	= ptCloud.pt2Ds[pt2DIdx].pt;
-			cam2pt3Ds[camIdx].push_back(xyz);
-			cam2pt2Ds[camIdx].push_back(xy);
-		}
-	}
-	vector<Mat> rvecs,ts;
-	ptCloud.getCamRvecsAndTs(rvecs,ts);
-
-	for(int i=0; i<M; i++){
-		vector<Point2f> reprojected;
-		projectPoints(cam2pt3Ds[i], rvecs[i], ts[i], camMat, distortionMat, reprojected);
-		assert(reprojected.size() == cam2pt2Ds[i].size());
-		for(int j=0; j<reprojected.size(); j++){
-			meanProjectionError += (float) norm((reprojected[j]-cam2pt2Ds[i][j]));	//distance between 2 points
-		}
-		totalProjections+=reprojected.size();
-	}
-
-	cout<<"mean projection error = "<<meanProjectionError/totalProjections<<endl;
+	ptCloud.updateReprojectionErrors(camMat,distortionMat);
+	float meanError;
+	ptCloud.getMeanReprojectionError(meanError);
+	cout<<"mean projection error = "<<meanError<<endl;
 }
 
 void SFMPipeline::pruneHighReprojectionErrorPoints(){
-	int N = ptCloud.pt3Ds.size();
-	int M = ptCloud.camMats.size();
-	float totalMeanProjectionError = 0.0f;
-	int   totalProjections 	  = 0;
-	//list of boolean to mark whether 3d point should be removed
-	//true to remove
-	vector<bool> removeMask(N,false);
 
-	vector<vector<Point3f> >cam2pt3Ds(M,vector<Point3f>());
-	vector<vector<Point2f> >cam2pt2Ds(M,vector<Point2f>());
-	vector<vector<int> > 	cam2pt3Didxs(M,vector<int>());
-	vector<vector<int> > 	cam2pt2Didxs(M,vector<int>());
+	int cloudSizeOld = ptCloud.pt3Ds.size();
 
-	for(int i=0; i<N; i++){
-		map<int, int> img2ptIdx = ptCloud.pt3Ds[i].img2ptIdx;
-		Point3f xyz	= ptCloud.pt3Ds[i].pt;
-		for(map<int, int>::iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
-			int imgIdx 	= (*j).first;
-			int camIdx 	= ptCloud.img2camMat[imgIdx];
-			int pt2DIdx	= ptCloud.img2pt2Ds[imgIdx][(*j).second];
-			Point2f xy	= ptCloud.pt2Ds[pt2DIdx].pt;
-			cam2pt3Ds[camIdx].push_back(xyz);
-			cam2pt2Ds[camIdx].push_back(xy);
-			cam2pt3Didxs[camIdx].push_back(i);
-			cam2pt2Didxs[camIdx].push_back(pt2DIdx);
-		}
-	}
-	vector<Mat> rvecs,ts;
-	ptCloud.getCamRvecsAndTs(rvecs,ts);
+	ptCloud.updateReprojectionErrors(camMat,distortionMat);
+	float thresh = REPROJERROR_THRESH;
+	ptCloud.removeHighError3D(thresh);
 
-	//update reprojection errors
-	for(int i=0; i<M; i++){
-		vector<Point2f> reprojected;
-		if(cam2pt3Ds[i].empty()){
-			continue;
-		}
-		projectPoints(cam2pt3Ds[i], rvecs[i], ts[i], camMat, distortionMat, reprojected);
-		assert(reprojected.size() == cam2pt2Ds[i].size() && reprojected.size() == cam2pt2Didxs[i].size());
-		for(int j=0; j<reprojected.size(); j++){
-			float reprojectError = (float) norm((reprojected[j]-cam2pt2Ds[i][j]));	//distance between 2 points
-			int imgIdx = ptCloud.pt2Ds[cam2pt2Didxs[i][j]].img_idx;
-			ptCloud.pt3Ds[cam2pt3Didxs[i][j]].img2error[imgIdx] = reprojectError;
-			totalMeanProjectionError+=reprojectError;
-		}
-		totalProjections += reprojected.size();
-	}
-	totalMeanProjectionError = totalMeanProjectionError/totalProjections;
-	cout<<"total mean reprojection error = "<<totalMeanProjectionError<<endl;
-	float errorThresh 	= totalMeanProjectionError*REPROJERROR_THRESH;
+	int cloudSizeNew = ptCloud.pt3Ds.size();
 
-	//calculate each 3D point's mean reprojection error, mark those > thresh
-	for(int i=0; i<N; i++){
-		map<int, float> img2error = ptCloud.pt3Ds[i].img2error;
-		float errorSum = 0.0f;
-		for(map<int, float>::iterator j = img2error.begin(); j != img2error.end(); j++) {
-			errorSum += (*j).second;
-		}
-		if(errorSum/img2error.size()>errorThresh){
-			removeMask[i] = true;
-		}
-	}
-
-	ptCloud.remove3Ds(removeMask);
-
-	cout<<"High Reproj Error Points removed = "<<(N-ptCloud.pt3Ds.size())<<endl;
+	cout<<"High Reproj Error Points removed = "<<(cloudSizeOld-cloudSizeNew)<<endl;
 
 }
 void SFMPipeline::writePLY(string addOn){
@@ -1215,9 +1130,8 @@ void SFMPipeline::readPLY(		const string 			&path,
 }
 
 void SFMPipeline::printDebug(){
-	map<int, vector<int> > img2pt2Ds = ptCloud.img2pt2Ds;
-	for(map<int, vector<int> >::iterator i = img2pt2Ds.begin(); i != img2pt2Ds.end(); i++) {
-		vector<int> pt2DIdxs = (*i).second;
-		cout<<"["<<(*i).first<<"]"<<ptCloud.pt2Ds[pt2DIdxs[0]].dec<<endl;
-	}
+	ptCloud.updateReprojectionErrors(camMat,distortionMat);
+	float error;
+	ptCloud.getMeanReprojectionError(error);
+	cout<<"mean reprojection error = "<<error<<endl;
 }

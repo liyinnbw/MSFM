@@ -92,6 +92,10 @@ void MainWindow::createActions()
 	checkMatchAction->setStatusTip(tr("Check quality of match"));
 	connect(checkMatchAction, SIGNAL(triggered()), this, SLOT(handleCheckMatch()));
 
+	removeBadAction = new QAction(tr("&RemoveBad"),this);
+	removeBadAction->setStatusTip(tr("Remove 3D points with high reprojection error"));
+	connect(removeBadAction, SIGNAL(triggered()), this, SLOT(handleRemoveBad()));
+
 }
 
 void MainWindow::createMenus()
@@ -117,6 +121,7 @@ void MainWindow::createToolBars()
     viewToolBar->addAction(checkMatchAction);
     viewToolBar->addAction(reconstructAction);
 	viewToolBar->addAction(bundleAdjustmentAction);
+	viewToolBar->addAction(removeBadAction);
 	viewToolBar->addAction(saveAction);
 
     helpToolBar = addToolBar(tr("Help"));
@@ -183,6 +188,10 @@ void MainWindow::handleCheckMatch(){
 	QList<bool> mask;
 	matchPanel->getMask(mask);
 	coreInterface->checkMatch(mask);
+}
+void MainWindow::handleRemoveBad(){
+	statusBar()->showMessage(tr("removing bad points..."));
+	coreInterface->removeBad();
 }
 void MainWindow::displayPointCloud(){
 	statusBar()->showMessage(tr("loading cloud..."));

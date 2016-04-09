@@ -89,6 +89,7 @@ public:
 	bool coreIsSet(){return core!=NULL;}
 	void nextPair();
 	void checkMatch(const QList<bool> &);
+	void removeBad();
 
 private:
 	SFMPipeline 				*core;

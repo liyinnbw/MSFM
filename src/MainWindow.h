@@ -35,6 +35,7 @@ private slots:
 	void handleBundleAdjustment();
 	void handleDeletePointIdx(const QList<int> idxs);
 	void handleCheckMatch();
+	void handleRemoveBad();
 	void displayPointCloud();
 	void displayMatchResult();
 
@@ -53,6 +54,7 @@ private:
 	QAction 				*bundleAdjustmentAction;
 	QAction 				*nextPairAction;
 	QAction 				*checkMatchAction;
+	QAction					*removeBadAction;
 	QAction 				*saveAction;
 	
 	QToolBar 				*fileToolBar;

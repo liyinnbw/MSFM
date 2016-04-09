@@ -19,10 +19,12 @@ PtCloud::~PtCloud() {
 	// TODO Auto-generated destructor stub
 }
 void PtCloud::clear(){
+	imgRoot = "";
 	imgs.clear();
 	pt3Ds.clear();
-	pt2Ds.clear();
 	img2pt2Ds.clear();
+	img2camMat.clear();
+	camMats.clear();
 }
 bool PtCloud::imageIsUsed(	const int			imgIdx){
 	return (img2camMat.find(imgIdx) != img2camMat.end());
@@ -37,7 +39,7 @@ void PtCloud::add2D(	const int 				imgIdx,
 
 
 	//populate data
-	img2pt2Ds[imgIdx] = vector<int>();
+	img2pt2Ds[imgIdx] = vector<Pt2D>();
 	img2pt2Ds[imgIdx].reserve(kpts.size());
 	for(int i=0; i<kpts.size(); i++){
 		Pt2D pt2D;
@@ -45,8 +47,7 @@ void PtCloud::add2D(	const int 				imgIdx,
 		pt2D.dec			= decs.row(i);
 		pt2D.img_idx 		= imgIdx;
 		pt2D.pt3D_idx 		= -1;
-		pt2Ds.push_back(pt2D);
-		img2pt2Ds[imgIdx].push_back(pt2Ds.size()-1);
+		img2pt2Ds[imgIdx].push_back(pt2D);
 	}
 }
 
@@ -63,12 +64,11 @@ void PtCloud::add3D(	const int 				imgIdx1,
 	assert(img2pt2Ds.find(imgIdx2)!=img2pt2Ds.end());	//already has 2d
 
 	//populate data
-	vector<int> pt2Didxs1 = img2pt2Ds[imgIdx1];
-	vector<int> pt2Didxs2 = img2pt2Ds[imgIdx2];
+	//NOTE: it must be reference(&) to original data
+	vector<Pt2D>& pt2Ds1 = img2pt2Ds[imgIdx1];
+	vector<Pt2D>& pt2Ds2 = img2pt2Ds[imgIdx2];
 	for(int i=0; i<xyzs.size(); i++){
 		//add 3D point
-		int pt2D_idx1 		= pt2Didxs1[img2Didxs1[i]];
-		int pt2D_idx2 		= pt2Didxs2[img2Didxs2[i]];
 		Pt3D pt3D;
 		pt3D.pt				= xyzs[i];
 		pt3D.img2ptIdx[imgIdx1] = img2Didxs1[i];
@@ -78,10 +78,12 @@ void PtCloud::add3D(	const int 				imgIdx1,
 		pt3Ds.push_back(pt3D);
 
 		//update corresponding 2D points
-		assert(pt2Ds[pt2D_idx1].img_idx == imgIdx1 && pt2Ds[pt2D_idx1].pt3D_idx == -1);
-		assert(pt2Ds[pt2D_idx2].img_idx == imgIdx2 && pt2Ds[pt2D_idx2].pt3D_idx == -1);
-		pt2Ds[pt2D_idx1].pt3D_idx = pt3Ds.size()-1;
-		pt2Ds[pt2D_idx2].pt3D_idx = pt3Ds.size()-1;
+		int pt2D_idx1 		= img2Didxs1[i];
+		int pt2D_idx2 		= img2Didxs2[i];
+		assert(pt2Ds1[pt2D_idx1].img_idx == imgIdx1 && pt2Ds1[pt2D_idx1].pt3D_idx == -1);
+		assert(pt2Ds2[pt2D_idx2].img_idx == imgIdx2 && pt2Ds2[pt2D_idx2].pt3D_idx == -1);
+		pt2Ds1[pt2D_idx1].pt3D_idx = pt3Ds.size()-1;
+		pt2Ds2[pt2D_idx2].pt3D_idx = pt3Ds.size()-1;
 	}
 }
 
@@ -95,24 +97,24 @@ void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
 	{
 		if(removeMask[i]){
 			//before erase, clear pt2D's 3d reference
-			map<int,int> img2ptIdx = (*it).img2ptIdx;
-			for(map<int, int>::iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			const map<int,int>& img2ptIdx = (*it).img2ptIdx;
+			//NOTE: you must use const_iterator to iterate through const data
+			for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
 				int imgIdx 	= (*j).first;
 				int imgPtIdx= (*j).second;
-				int pt2Didx = img2pt2Ds[imgIdx][imgPtIdx];
-				pt2Ds[pt2Didx].pt3D_idx = -1;
+				img2pt2Ds[imgIdx][imgPtIdx].pt3D_idx = -1;
 			}
 			it = pt3Ds.erase(it);
 			removed++;
 		}else{
 			//due to some 3d points being removed, idxs change, need update
 			int pt3Didx = it - pt3Ds.begin();
-			map<int,int> img2ptIdx = (*it).img2ptIdx;
-			for(map<int, int>::iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			const map<int,int>& img2ptIdx = (*it).img2ptIdx;
+			//NOTE: you must use const_iterator to iterate through const data
+			for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
 				int imgIdx 	= (*j).first;
 				int imgPtIdx= (*j).second;
-				int pt2Didx = img2pt2Ds[imgIdx][imgPtIdx];
-				pt2Ds[pt2Didx].pt3D_idx = pt3Didx;
+				img2pt2Ds[imgIdx][imgPtIdx].pt3D_idx = pt3Didx;
 			}
 			++it;
 		}
@@ -127,6 +129,8 @@ void PtCloud::addCamMat(	int			imgIdx,
 	assert(img2camMat.find(imgIdx) == img2camMat.end());
 	camMats.push_back(camMat);
 	img2camMat[imgIdx] = camMats.size()-1;
+	assert(camMat2img.find(camMats.size()-1) == camMat2img.end());
+	camMat2img[camMats.size()-1] = imgIdx;
 }
 
 void PtCloud::update3D(	const int 			imgIdx,
@@ -138,23 +142,22 @@ void PtCloud::update3D(	const int 			imgIdx,
 	assert(img2pt2Ds.find(imgIdx)!=img2pt2Ds.end());	//already has 2d
 
 	//update data
-	vector<int> pt2Didxs = img2pt2Ds[imgIdx];
 	for(int i=0; i<pt3Didxs.size(); i++){
 		//update 3d point's pt2D_idx
-		int pt2D_idx	= pt2Didxs[img2Didxs[i]];
+		int pt2D_idx	= img2Didxs[i];
 		int pt3D_idx	= pt3Didxs[i];
 		if(pt3Ds[pt3D_idx].img2ptIdx.find(imgIdx) != pt3Ds[pt3D_idx].img2ptIdx.end()){
 			//this occurs when adding a correspondence from a picture that already has another point corresponding to this 3D point
-			//TODO: how shall we decide which one to keep? now it is First come First
+			//TODO: how shall we decide which one to keep? now it is first come first serve
 			continue;
 		}
-		pt3Ds[pt3D_idx].img2ptIdx[imgIdx] = img2Didxs[i];
+		pt3Ds[pt3D_idx].img2ptIdx[imgIdx] = pt2D_idx;
 		pt3Ds[pt3D_idx].img2error[imgIdx] = 0.0f;
 
 		//update corresponding 2D points
-		assert(pt2Ds[pt2D_idx].img_idx == imgIdx);
-		assert(pt2Ds[pt2D_idx].pt3D_idx == -1);
-		pt2Ds[pt2D_idx].pt3D_idx = pt3D_idx;
+		assert(img2pt2Ds[imgIdx][pt2D_idx].img_idx == imgIdx);
+		assert(img2pt2Ds[imgIdx][pt2D_idx].pt3D_idx == -1);
+		img2pt2Ds[imgIdx][pt2D_idx].pt3D_idx = pt3D_idx;
 	}
 }
 
@@ -164,13 +167,11 @@ void PtCloud::getImageFeatures(	const int 			imgIdx,
 	assert(img2pt2Ds.find(imgIdx) != img2pt2Ds.end());
 	kpts.clear();
 	vector<Mat> decList;
-	vector<int> pt2Didxs = img2pt2Ds[imgIdx];
-	kpts.reserve(pt2Didxs.size());
-	decs.reserve(pt2Didxs.size());
-	for(int i=0; i<pt2Didxs.size(); i++){
-		int idx		= pt2Didxs[i];
-		KeyPoint pt = KeyPoint(pt2Ds[idx].pt, 0);	//wrap point2f in keypoint, size=0
-		Mat dec		= pt2Ds[idx].dec;
+	kpts.reserve(img2pt2Ds[imgIdx].size());
+	decs.reserve(img2pt2Ds[imgIdx].size());
+	for(int i=0; i<img2pt2Ds[imgIdx].size(); i++){
+		KeyPoint pt = KeyPoint(img2pt2Ds[imgIdx][i].pt, 0);	//wrap point2f in keypoint, size=0
+		Mat dec		= img2pt2Ds[imgIdx][i].dec;
 		kpts.push_back(pt);
 		decList.push_back(dec);
 	}
@@ -196,29 +197,27 @@ void PtCloud::checkImage2Dfor3D(			const int 			imgIdx,
 	has3D.clear();
 	has3D.resize(img2Didxs.size(),false);
 
-	vector<int> pt2Didxs = img2pt2Ds[imgIdx];
 	for(int i=0; i<img2Didxs.size(); i++){
-		int pt2D_idx	= pt2Didxs[img2Didxs[i]];
-		int pt3D_idx	= pt2Ds[pt2D_idx].pt3D_idx;
+		int pt2D_idx	= img2Didxs[i];
+		int pt3D_idx	= img2pt2Ds[imgIdx][pt2D_idx].pt3D_idx;
 		if(pt3D_idx != -1){
 			has3D[i] = true;
 		}
 	}
 }
 void PtCloud::get3DfromImage2D(	const int 			imgIdx,
-								const vector<int>	img2Didxs,		//CAUSION: this does not index class variable pt2Ds but class variable img2pt2Ds[imgIdx]
+								const vector<int>	img2Didxs,
 								vector<Point3f>		&pts3D,
-								vector<int>			&pts3DIdxs)		//this indexs the class variable pt3Ds
+								vector<int>			&pts3DIdxs)
 {
 	assert(img2pt2Ds.find(imgIdx) != img2pt2Ds.end());
 	pts3D.clear();
 	pts3DIdxs.clear();
 	pts3D.reserve(img2Didxs.size());
 	pts3DIdxs.reserve(img2Didxs.size());
-	vector<int> pt2Didxs = img2pt2Ds[imgIdx];
 	for(int i=0; i<img2Didxs.size(); i++){
-		int pt2D_idx	= pt2Didxs[img2Didxs[i]];
-		int pt3D_idx	= pt2Ds[pt2D_idx].pt3D_idx;
+		int pt2D_idx	= img2Didxs[i];
+		int pt3D_idx	= img2pt2Ds[imgIdx][pt2D_idx].pt3D_idx;
 		assert(pt3D_idx != -1);
 		pts3D.push_back(pt3Ds[pt3D_idx].pt);
 		pts3DIdxs.push_back(pt3D_idx);
@@ -232,13 +231,11 @@ void PtCloud::getAll3DfromImage2D(	const int 			imgIdx,
 	assert(img2pt2Ds.find(imgIdx) != img2pt2Ds.end());
 	pts3D.clear();
 	pts3DIdxs.clear();
-	vector<int> pt2Didxs = img2pt2Ds[imgIdx];
-	pts3D.reserve(pt2Didxs.size()/2);	//estimated size, for efficiency
-	pts3DIdxs.reserve(pt2Didxs.size()/2);
+	pts3D.reserve(img2pt2Ds[imgIdx].size()/2);	//estimated size, for efficiency
+	pts3DIdxs.reserve(img2pt2Ds[imgIdx].size()/2);
 
-	for(int i=0; i<pt2Didxs.size(); i++){
-		int pt2D_idx	= pt2Didxs[i];
-		int pt3D_idx	= pt2Ds[pt2D_idx].pt3D_idx;
+	for(int i=0; i<img2pt2Ds[imgIdx].size(); i++){
+		int pt3D_idx	= img2pt2Ds[imgIdx][i].pt3D_idx;
 		if(pt3D_idx != -1){
 			pts3D.push_back(pt3Ds[pt3D_idx].pt);
 			pts3DIdxs.push_back(pt3D_idx);
@@ -267,17 +264,18 @@ void PtCloud::getAverageDecs( 	vector<Mat> 		&decs){
 void PtCloud::getAverageDecAtPt3DIdx(	const int		idx,
 										Mat				&averageDec){
 	averageDec = Mat();
-	map<int,int> img2ptIdx = pt3Ds[idx].img2ptIdx;
-	for(map<int, int>::iterator i = img2ptIdx.begin(); i != img2ptIdx.end(); i++) {
+	const map<int,int>& img2ptIdx = pt3Ds[idx].img2ptIdx;
+	//NOTE: you must use const iterator to iterate through const data
+	for(map<int, int>::const_iterator i = img2ptIdx.begin(); i != img2ptIdx.end(); i++) {
 		int imgIdx 	= (*i).first;
 		int imgPtIdx= (*i).second;
-		int pt2Didx = img2pt2Ds[imgIdx][imgPtIdx];
 		if(averageDec.rows == 0 && averageDec.cols == 0){
-			averageDec = pt2Ds[pt2Didx].dec;
+			averageDec = img2pt2Ds[imgIdx][imgPtIdx].dec;
 		}else{
-			averageDec+=pt2Ds[pt2Didx].dec;
+			averageDec+= img2pt2Ds[imgIdx][imgPtIdx].dec;
 		}
 	}
+	assert(averageDec.rows != 0 && averageDec.cols != 0);
 	averageDec/=img2ptIdx.size();
 }
 
@@ -289,19 +287,24 @@ void PtCloud::get2DsHave3D(		vector<Point2f> 	&xys,
 	pt3DIdxs.clear();
 
 	//for efficiency
-	int roughSizeEstimate = pt2Ds.size()/2;
+	int roughSizeEstimate = pt3Ds.size()*3;
 	xys.reserve(roughSizeEstimate);
 	imgIdxs.reserve(roughSizeEstimate);
 	pt3DIdxs.reserve(roughSizeEstimate);
 
-	for(int i=0; i<pt2Ds.size(); i++){
-		if(pt2Ds[i].pt3D_idx!=-1){
-			xys.push_back(		pt2Ds[i].pt);
-			imgIdxs.push_back(	pt2Ds[i].img_idx);
-			pt3DIdxs.push_back( pt2Ds[i].pt3D_idx);
+	for(map<int, vector<Pt2D> >::iterator i = img2pt2Ds.begin(); i!=img2pt2Ds.end(); i++){
+		int imgIdx 					= (*i).first;
+		const vector<Pt2D>& pt2Ds 	= (*i).second;	//use reference to avoid data copying, use constant to guard against modification
+		for(int j=0; j<pt2Ds.size(); j++){
+			if(pt2Ds[j].pt3D_idx!=-1){
+				xys.push_back(		pt2Ds[j].pt);
+				imgIdxs.push_back(	pt2Ds[j].img_idx);
+				pt3DIdxs.push_back( pt2Ds[j].pt3D_idx);
+			}
 		}
 	}
 }
+
 void PtCloud::getCamRvecsAndTs( vector<Mat> 		&rvecs,
 								vector<Mat> 		&ts)
 {
@@ -330,4 +333,89 @@ void PtCloud::getCamRvecsAndTs( vector<Mat> 		&rvecs,
 		rvecs.push_back(rvec);
 		ts.push_back(t);
 	}
+}
+
+void PtCloud::updateReprojectionErrors(	const Mat		&camIntrinsicMat,
+										const Mat		&camDistortionMat)
+{
+
+	int N = pt3Ds.size();
+	int M = camMats.size();
+
+	vector<vector<Point3f> >cam2pt3Ds(M,vector<Point3f>());
+	vector<vector<Point2f> >cam2pt2Ds(M,vector<Point2f>());
+	vector<vector<int> > 	cam2pt3Didxs(M,vector<int>());
+
+	for(int i=0; i<N; i++){
+		const map<int, int>& img2ptIdx = pt3Ds[i].img2ptIdx;
+		const Point3f& xyz		= pt3Ds[i].pt;
+		for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			int imgIdx 			= (*j).first;
+			int camIdx 			= img2camMat[imgIdx];
+			int pt2DIdx			= (*j).second;
+			const Point2f& xy	= img2pt2Ds[imgIdx][pt2DIdx].pt;
+			cam2pt3Ds[camIdx].push_back(xyz);
+			cam2pt2Ds[camIdx].push_back(xy);
+			cam2pt3Didxs[camIdx].push_back(i);
+
+		}
+	}
+	vector<Mat> rvecs,ts;
+	getCamRvecsAndTs(rvecs,ts);
+
+	//update reprojection errors
+	for(int i=0; i<M; i++){
+		vector<Point2f> reprojected;
+		if(cam2pt3Ds[i].empty()){
+			continue;
+		}
+		projectPoints(cam2pt3Ds[i], rvecs[i], ts[i], camIntrinsicMat, camDistortionMat, reprojected);
+		assert(reprojected.size() == cam2pt2Ds[i].size());
+		assert(camMat2img.find(i)!=camMat2img.end());
+		int imgIdx = camMat2img[i];
+		for(int j=0; j<reprojected.size(); j++){
+			float reprojectError = (float) norm((reprojected[j]-cam2pt2Ds[i][j]));	//distance between 2 points
+			pt3Ds[cam2pt3Didxs[i][j]].img2error[imgIdx] = reprojectError;
+		}
+	}
+}
+
+//precondition: updateReprojectionErrors was called before
+void PtCloud::getMeanReprojectionError( 	float 	&meanError){
+	int N = pt3Ds.size();
+	int totalMeasures = 0;
+	float totalError  = 0.0f;
+
+	for(int i=0; i<N; i++){
+		const map<int, float>& img2error = pt3Ds[i].img2error;
+		for(map<int, float>::const_iterator j = img2error.begin(); j != img2error.end(); j++) {
+			totalError += (*j).second;
+			totalMeasures++;
+		}
+	}
+
+	meanError = totalError/totalMeasures;
+}
+
+//precondition: updateReprojectionErrors was called before
+void PtCloud::removeHighError3D(	const float thresh){
+	float meanError;
+	getMeanReprojectionError(meanError);
+	float errorThresh = meanError*thresh;
+
+	int N = pt3Ds.size();
+	vector<bool> 	removeMask(N,false);
+
+	for(int i=0; i<N; i++){
+		const map<int, float>& img2error = pt3Ds[i].img2error;
+		assert(img2error.size()>0); 	//every 3d point must has at least 1 error measure, else it should be removed
+		float totalPointError = 0.0f;
+		for(map<int, float>::const_iterator j = img2error.begin(); j != img2error.end(); j++) {
+			totalPointError += (*j).second;
+		}
+		if(totalPointError/img2error.size() > errorThresh){
+			removeMask[i] = true;
+		}
+	}
+	remove3Ds(removeMask);
 }

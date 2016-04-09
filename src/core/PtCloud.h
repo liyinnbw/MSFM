@@ -91,15 +91,23 @@ public:
 
 	void getCamRvecsAndTs( 		std::vector<cv::Mat> 		&rvecs,
 								std::vector<cv::Mat> 		&ts);
+
+	void updateReprojectionErrors(	const cv::Mat			&camIntrinsicMat,
+									const cv::Mat			&camDistortionMat);
+
+	void getMeanReprojectionError( 	float 					&meanError);
+
+	void removeHighError3D(		const float 				thresh);
+
 	//data
 	std::string 						imgRoot;
 	std::vector<std::string> 			imgs;		//all input image paths, including non-used ones
 	std::vector<Pt3D> 					pt3Ds;		//3d points
-	std::vector<Pt2D>					pt2Ds;		//2d points from all used images (including non-triangulated ones)
+	std::map<int, std::vector<Pt2D> >	img2pt2Ds;	//used image idx to 2D points detected in this image (including non-triangulated ones)
 	std::vector<cv::Matx34d>			camMats;	//camera mats
 	//data correspondences
-	std::map<int, std::vector<int> >	img2pt2Ds;	//used image idx to 2D point idxs detected in this image (including non-triangulated ones)
-	std::map<int, int>					img2camMat;	//used image idx to corresponding camera mat
+	std::map<int, int>					img2camMat;	//used image idx to corresponding camera mat idx
+	std::map<int, int>					camMat2img;	//camera mat idx to corresponding used image idx
 };
 
 #endif /* PTCLOUD_H_ */

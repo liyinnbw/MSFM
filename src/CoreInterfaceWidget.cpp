@@ -80,7 +80,7 @@ void TaskThread::run(){
 			}
 			//mCore->bundleAdjustment();
 			//mCore->pruneHighReprojectionErrorPoints();
-			//mCore->printDebug();
+			mCore->printDebug();
 		}
 			break; 
 		case TASK_DELETEPOINTS:
@@ -297,6 +297,22 @@ void CoreInterfaceWidget::checkMatch(const QList<bool> &mask){
 			messageBox.critical(0,"Error","check failed!");
 		}
 	}
+}
+
+void CoreInterfaceWidget::removeBad(){
+
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core->pruneHighReprojectionErrorPoints();
+	emit pointCloudReady();
 }
 void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	if(!coreIsSet()){
