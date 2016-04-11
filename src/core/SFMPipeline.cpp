@@ -8,17 +8,18 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
+
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
-//#include <opencv2/objdetect/objdetect.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
-//#include <opencv2/video/video.hpp>
-//#include <opencv2/video/tracking.hpp>
+
 #include "SFMPipeline.h"
 #include "BAHandler.h"
 #include "Utils.h"
-#include <stdio.h>
+#include "ProjectIO.h"
+#include "PlyIO.h"
 
 using namespace cv;
 using namespace std;
@@ -38,12 +39,18 @@ SFMPipeline::SFMPipeline(	const string			&root,
 								   -2.4033501462113189e-03, 3.8528268639875942e-04,
 								   -3.6380704054147735e-02 };
 	*/
+
 	double camMatArr[9] = { 1920, 		0.0, 		960,
 						   0.0, 		1920, 		540,
 						   0.0,			0.0,		1.0 };
+
+	/*double camMatArr[9] = { 4608, 		0.0, 		2304,
+						   0.0, 		4608, 		1536,
+						   0.0,			0.0,		1.0 };*/
 	double distortCoeffArr[5] = { 0, 0,
 								   0, 0,
 								   0 };
+
 
 	Mat CM(3, 3, CV_64F, camMatArr);
 	Mat DM(1, 5, CV_64F, distortCoeffArr);
@@ -983,118 +990,11 @@ void SFMPipeline::pruneHighReprojectionErrorPoints(){
 	cout<<"High Reproj Error Points removed = "<<(cloudSizeOld-cloudSizeNew)<<endl;
 
 }
-void SFMPipeline::writePLY(string addOn){
+void SFMPipeline::writePLY(	const string 			&root,
+							const string			&fname)
+{
 
-	vector<Matx34d> cameras = ptCloud.camMats;
-	vector<Point3f> pts;
-	ptCloud.getXYZs(pts);
-	vector<Vec3b> color(pts.size(),Vec3b(255,255,255));
-	ofstream myfile;
-	time_t rawtime;
-	struct tm * timeinfo;
-	char buffer[80];
-	time (&rawtime);
-	timeinfo = localtime(&rawtime);
-	strftime(buffer,80,"%d-%m-%Y-%I-%M-%S",timeinfo);
-	std::string str(buffer);
-	std::string filename = "outputs/"+str+addOn+".ply";
-	cout<<filename<<endl;
-	myfile.open (filename.c_str());
-
-	int numCameras = cameras.size();
-
-	//write point cloud to .ply file
-	myfile <<"ply"<<endl;
-	myfile <<"format ascii 1.0"<<endl;
-
-	//write descriptors
-	vector<Mat> decs;
-	ptCloud.getAverageDecs(decs);
-	assert(decs.size() == pts.size());
-	myfile <<"comment cloudSize: "<<decs.size()<<endl;
-	for(int i=0; i<decs.size(); i++){
-		myfile <<"comment dec: "<<i<<" "<<decs[i]<<endl;
-	}
-
-	myfile <<"element vertex "<<pts.size()+numCameras*4<<endl;
-	myfile <<"property float x"<<endl;
-	myfile <<"property float y"<<endl;
-	myfile <<"property float z"<<endl;
-	myfile <<"property uchar red"<<endl;
-	myfile <<"property uchar green"<<endl;
-	myfile <<"property uchar blue"<<endl;
-	myfile <<"element face 0"<<endl;
-	myfile <<"property list uchar int vertex_indices"<<endl;
-	myfile <<"element edge "<<numCameras*3<<endl;            // 3 axis
-	myfile <<"property int vertex1"<<endl;
-	myfile <<"property int vertex2"<<endl;
-	myfile <<"property uchar red"<<endl;
-	myfile <<"property uchar green"<<endl;
-	myfile <<"property uchar blue"<<endl;
-	myfile <<"end_header"<<endl;
-
-	for (int n=0 ; n<pts.size() ; n++)
-	{
-		    float x=pts[n].x;
-		    float y= pts[n].y;
-		    float z=pts[n].z;
-		    int r=color[n][0];
-		    int g=color[n][1];
-		    int b=color[n][2];
-		    myfile <<x<<" "<<y<<" "<<z<<" "<<b<<" "<<g<<" "<<r<<endl;
-	}
-	for (int n=0 ; n<numCameras ; n++)
-	{
-		double TRx = cameras[n](0,3);
-		double TRy = cameras[n](1,3);
-		double TRz = cameras[n](2,3);
-
-		double Ix0  = cameras[n](0,0);
-		double Iy0  = cameras[n](0,1);
-		double Iz0  = cameras[n](0,2);
-
-		double Jx0  = cameras[n](1,0);
-		double Jy0  = cameras[n](1,1);
-		double Jz0  = cameras[n](1,2);
-
-		double Kx0  = cameras[n](2,0);
-		double Ky0  = cameras[n](2,1);
-		double Kz0  = cameras[n](2,2);
-
-		double Tx  = -TRx*Ix0 -TRy*Jx0 -TRz*Kx0;
-		double Ty  = -TRx*Iy0 -TRy*Jy0 -TRz*Ky0;
-		double Tz  = -TRx*Iz0 -TRy*Jz0 -TRz*Kz0;
-
-		double Ix  = Tx + cameras[n](0,0);
-		double Iy  = Ty + cameras[n](0,1);
-		double Iz  = Tz + cameras[n](0,2);
-
-		double Jx  = Tx + cameras[n](1,0);
-		double Jy  = Ty + cameras[n](1,1);
-		double Jz  = Tz + cameras[n](1,2);
-
-		double Kx  = Tx + cameras[n](2,0);
-		double Ky  = Ty + cameras[n](2,1);
-		double Kz  = Tz + cameras[n](2,2);
-
-		myfile <<Tx<<" "<<Ty<<" "<<Tz<<" "<<255<<" "<<255<<" "<<255<<endl;
-		myfile <<Ix<<" "<<Iy<<" "<<Iz<<" "<<255<<" "<<0<<" "<<0<<endl;
-		myfile <<Jx<<" "<<Jy<<" "<<Jz<<" "<<0<<" "<<255<<" "<<0<<endl;
-		myfile <<Kx<<" "<<Ky<<" "<<Kz<<" "<<0<<" "<<0<<" "<<255<<endl;
-
-	}
-
-	// draw the axis
-	int  offset = (int)pts.size();
-	for (int n=0 ; n<numCameras ; n++)
-	{
-		myfile << n*4+offset << " " << n*4+1+offset << " " << 255 << " "<< 0   << " " << 0   << endl;
-		myfile << n*4+offset << " " << n*4+2+offset << " " << 0   << " "<< 255 << " " << 0   << endl;
-		myfile << n*4+offset << " " << n*4+3+offset << " " << 0   << " "<< 0   << " " << 255 << endl;
-
-	}
-
-	myfile.close();
+	PlyIO::writePLY(root,fname,ptCloud);
 }
 void SFMPipeline::readPLY(		const string 			&path,
 					vector<Point3f> 		&xyzs){
@@ -1134,4 +1034,15 @@ void SFMPipeline::printDebug(){
 	float error;
 	ptCloud.getMeanReprojectionError(error);
 	cout<<"mean reprojection error = "<<error<<endl;
+}
+
+void SFMPipeline::saveProject(			const string 				&root,
+										const string 				&fname)
+{
+	ProjectIO::writeProject(root,fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+}
+
+void SFMPipeline::loadProject(			const string				&fname)
+{
+	ProjectIO::readProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
 }

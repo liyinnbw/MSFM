@@ -63,3 +63,14 @@ void Utils::Matches2Indices(	const std::vector<cv::DMatch> &matches,
 	}
 }
 
+void Utils::getTimeStampAsString(std::string &tstmp){
+	time_t rawtime;
+	struct tm * timeinfo;
+	char buffer[80];
+	time (&rawtime);
+	timeinfo = localtime(&rawtime);
+	strftime(buffer,80,"%d-%m-%Y-%I-%M-%S",timeinfo);
+	string str(buffer);
+	tstmp = str;
+}
+

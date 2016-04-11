@@ -134,13 +134,32 @@ void CoreInterfaceWidget::setImagePaths(const QString &root, const QList<QString
 	tt = new TaskThread(core);
 }
 
+void CoreInterfaceWidget::getImagePaths(QString &root, QList<QString> &list){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	list.clear();
+	root = QString::fromStdString(core->ptCloud.imgRoot);
+	list.reserve(core->ptCloud.imgs.size());
+	for(int i=0; i<(core->ptCloud.imgs.size()); i++){
+		list.push_back(QString::fromStdString(core->ptCloud.imgs[i]));
+	}
+}
+
 void CoreInterfaceWidget::nextPair(){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -164,7 +183,7 @@ void CoreInterfaceWidget::reconstruct(const QList<bool> &mask){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -188,7 +207,7 @@ void CoreInterfaceWidget::bundleAdjust(){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -209,7 +228,7 @@ void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -232,7 +251,7 @@ void CoreInterfaceWidget::matchImages(	const int &_imgIdx1,
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -268,7 +287,7 @@ void CoreInterfaceWidget::checkMatch(const QList<bool> &mask){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -306,7 +325,7 @@ void CoreInterfaceWidget::removeBad(){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	if(tt->isRunning()){
+	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
@@ -320,6 +339,11 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
 	core-> ptCloud.getXYZs(xyzs);
 }
 
@@ -327,6 +351,11 @@ void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
 	core->ptCloud.getUsedImageIdxs(usedImgIdxs);
@@ -338,8 +367,29 @@ void CoreInterfaceWidget::saveCloud(){
 		messageBox.critical(0,"Error","image folder is not loaded!");
 		return;
 	}
-	cout<<"core interface save cloud"<<endl;
-	core-> writePLY("");
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface save project and cloud"<<endl;
+	core-> writePLY("outputs","");
+	core-> saveProject("save","");
+}
+
+void CoreInterfaceWidget::loadProject(const QString &pname){
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface load project"<<endl;
+	setImagePaths(QString(), QList<QString>());	// just to recreate the core
+	core ->loadProject(pname.toStdString());
+	emit projectLoaded();
+	if(core->ptCloud.pt3Ds.size()>0){
+		emit pointCloudReady();
+	}
 }
 
 

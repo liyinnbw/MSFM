@@ -15,6 +15,7 @@ src/MatchWidget.cpp
 src/MatchPanel.cpp
 src/MatchPanelModel.cpp
 src/core/PlyIO.cpp
+src/core/ProjectIO.cpp
 src/CoreInterfaceWidget.cpp
 src/core/Utils.cpp
 src/core/PtCloud.cpp
@@ -29,6 +30,7 @@ src/core/ba/v3d_optimization.cpp
 src/core/ba/v3d_optimization_lm.cpp
 src/core/ba/v3d_stereobundle.cpp
 src/core/PlyIO.h
+src/core/ProjectIO.h
 src/core/SFMPipeline.h
 src/core/Utils.h
 src/core/PtCloud.h

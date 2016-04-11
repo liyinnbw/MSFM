@@ -67,6 +67,12 @@ void MainWindow::createActions()
     openAction->setStatusTip(tr("Open image folder"));
     connect(openAction, SIGNAL(triggered()), this, SLOT(openDirectory()));
 
+    openSavedAction = new QAction(tr("&Open saved"), this);
+    openSavedAction->setShortcut(tr("Ctrl+2"));
+    openSavedAction->setStatusTip(tr("Open saved project"));
+    connect(openSavedAction, SIGNAL(triggered()), this, SLOT(openFile()));
+
+
     featureMatchAction = new QAction(tr("&Match"), this);
     featureMatchAction->setStatusTip(tr("Match selected image pair"));
     connect(featureMatchAction, SIGNAL(triggered()), this, SLOT(handleFeatureMatch()));
@@ -81,7 +87,7 @@ void MainWindow::createActions()
 	connect(bundleAdjustmentAction, SIGNAL(triggered()), this, SLOT(handleBundleAdjustment()));
 
 	saveAction = new QAction(tr("&Save"),this);
-	saveAction->setStatusTip(tr("Save cloud"));
+	saveAction->setStatusTip(tr("Save project file and write <pointCloud>.ply"));
 	connect(saveAction, SIGNAL(triggered()), this, SLOT(handleSave()));
 
 	nextPairAction = new QAction(tr("&NextPair"),this);
@@ -102,6 +108,7 @@ void MainWindow::createMenus()
 {
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAction);
+    fileMenu->addAction(openSavedAction);
 }
 
 void MainWindow::createStatusBar()
@@ -113,6 +120,7 @@ void MainWindow::createToolBars()
 {
     fileToolBar = addToolBar(tr("File"));
     fileToolBar->addAction(openAction);
+    fileToolBar->addAction(openSavedAction);
     
     viewToolBar = addToolBar(tr("View"));
 
@@ -135,6 +143,7 @@ void MainWindow::connectWidgets(){
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
+	connect(coreInterface, SIGNAL(projectLoaded()), this, SLOT(handleProjectLoaded()));
 
 
 	//connect(imgList1, SIGNAL(activated(int)), this, SLOT(handleFirstImageSelected(int)));
@@ -142,6 +151,14 @@ void MainWindow::connectWidgets(){
 }
 
 // Slot functions
+
+void MainWindow::handleProjectLoaded(){
+	QString imgRoot;
+	QList<QString> imgList;
+	coreInterface->getImagePaths(imgRoot, imgList);
+	matchPanel->setImagePaths(imgRoot, imgList);
+}
+
 void MainWindow::handleFeatureMatch(){
 
 	int idx1, idx2;
@@ -176,7 +193,7 @@ void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	coreInterface->deletePointIdx(idxs);
 }
 void MainWindow::handleSave(){
-	statusBar()->showMessage(tr("writing point cloud to ply..."));
+	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
 	coreInterface->saveCloud();
 }
 void MainWindow::handleNextPair(){
@@ -207,26 +224,15 @@ void MainWindow::displayPointCloud(){
 
 }
 
-void MainWindow::displayMatchResult(){
-	statusBar()->showMessage(tr("loading match result..."));
-	/*
-	QImage result;
-	coreInterface->getMatchResult(result);
-	matchViewer->setImage(result);
-	statusBar()->showMessage(tr("match result loaded"));
-	*/
-}
 
-
-
-void MainWindow::openCloud()
+void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-        tr("Open cloud file"), ".",
-		tr("PLY files (*.ply)"));
-        
+        tr("Open Project"), ".",
+		tr("YAML files (*.yaml)"));
+
     if (!fileName.isEmpty() && loadFile(fileName)==0){
-    	cloudViewer-> loadCloud(fileName);
+    	coreInterface -> loadProject(fileName);
     }
 }
 void MainWindow::openDirectory(){
@@ -242,6 +248,7 @@ void MainWindow::openDirectory(){
 	 cout<<dir.toStdString()<<endl;
 	 vector<string> sortedImageList;
 	 PathReader::readPaths(dir.toStdString(),".jpg", sortedImageList);
+	 //PathReader::readPaths(dir.toStdString(),".JPG", sortedImageList);
 	 QList<QString> imageList;
 	 imageList.reserve(sortedImageList.size());
 	 for(int i=0; i<sortedImageList.size(); i++){

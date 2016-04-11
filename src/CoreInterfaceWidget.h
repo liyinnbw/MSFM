@@ -65,6 +65,7 @@ class CoreInterfaceWidget: public QWidget
 	Q_OBJECT
 
 signals:
+	void projectLoaded();
 	void pointCloudReady();
 	void matchResultReady(const QList<QPointF> &, const QList<QPointF> &);
 	void nextPairReady(const int, const int);
@@ -75,6 +76,7 @@ public slots:
 	void bundleAdjust();
 	void handleBundleAdjustFinished();
 	void saveCloud();
+	void loadProject(const QString &);
 	void deletePointIdx(const QList<int> idxs);
 	void handleDeletePointIdxFinished();
 	void matchImages(	const int &imgIdx1,
@@ -84,6 +86,7 @@ public slots:
 public:
 	CoreInterfaceWidget();
 	void setImagePaths(const QString &root, const QList<QString> &list);
+	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
 	bool coreIsSet(){return core!=NULL;}

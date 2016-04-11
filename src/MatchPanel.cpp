@@ -62,8 +62,8 @@ void MatchPanel::createWidgets(){
 	this->setLayout(vLayout);
 }
 void MatchPanel::connectWidgets(){
-	connect(imgList1, SIGNAL(currentIndexChanged(int)), imgList1, SIGNAL(activated(int)));
-	connect(imgList2, SIGNAL(currentIndexChanged(int)), imgList2, SIGNAL(activated(int)));
+	connect(imgList1, SIGNAL(currentIndexChanged(int)), imgList1, SIGNAL(activated(int))); //side effect, forces handleFirstImageSelected to be called again
+	connect(imgList2, SIGNAL(currentIndexChanged(int)), imgList2, SIGNAL(activated(int))); //side effect, forces handleSecondImageSelected to be called again
 	connect(imgList1, SIGNAL(activated(int)), this, SLOT(handleFirstImageSelected(int)));
 	connect(imgList2, SIGNAL(activated(int)), this, SLOT(handleSecondImageSelected(int)));
 	connect(imageView1, SIGNAL(markSelected(const int)), this, SLOT(updateSelected(const int)));

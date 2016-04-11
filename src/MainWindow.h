@@ -26,8 +26,9 @@ public:
     MainWindow();
 
 private slots:
-	void openCloud();
+	void openFile();
 	void openDirectory();
+	void handleProjectLoaded();
 	void handleReconstruct();
 	void handleFeatureMatch();
 	void handleSave();
@@ -37,7 +38,6 @@ private slots:
 	void handleCheckMatch();
 	void handleRemoveBad();
 	void displayPointCloud();
-	void displayMatchResult();
 
 private:
     void createWidgets();
@@ -49,6 +49,7 @@ private:
 	int loadFile(const QString &fileName);
 
     QAction 				*openAction;
+    QAction 				*openSavedAction;
     QAction 				*featureMatchAction;
 	QAction 				*reconstructAction;
 	QAction 				*bundleAdjustmentAction;

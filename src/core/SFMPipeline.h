@@ -137,9 +137,18 @@ public:
 	void printDebug();
 
 	void bundleAdjustment();
-	void writePLY(std::string addOn);
+
+	void writePLY(				const std::string 				&root,
+								const std::string				&fname);
+
 	void readPLY(				const std::string 				&path,
 								std::vector<cv::Point3f> 		&xyzs);
+
+	void saveProject(			const std::string 				&root,
+								const std::string 				&fname);
+
+	void loadProject(			const std::string				&fname);
+
 	bool isDone(){return done;}
 	double getCamFocal();
 	cv::Point2d getCamPrinciple();

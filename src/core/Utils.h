@@ -10,6 +10,10 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
+
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include "PtCloud.h"
@@ -31,6 +35,8 @@ public:
 	static void Matches2Indices(	const std::vector<cv::DMatch> &matches,
 									std::vector<int> &idxs1,
 									std::vector<int> &idxs2);
+
+	static void getTimeStampAsString(std::string &tstmp);
 
 
 };
