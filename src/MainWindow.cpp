@@ -247,8 +247,8 @@ void MainWindow::openDirectory(){
 	 imageRoot = dir;
 	 cout<<dir.toStdString()<<endl;
 	 vector<string> sortedImageList;
-	 PathReader::readPaths(dir.toStdString(),".jpg", sortedImageList);
-	 //PathReader::readPaths(dir.toStdString(),".JPG", sortedImageList);
+	 //PathReader::readPaths(dir.toStdString(),".jpg", sortedImageList);
+	 PathReader::readPaths(dir.toStdString(),".JPG", sortedImageList);
 	 QList<QString> imageList;
 	 imageList.reserve(sortedImageList.size());
 	 for(int i=0; i<sortedImageList.size(); i++){

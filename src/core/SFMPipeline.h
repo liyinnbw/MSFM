@@ -79,6 +79,7 @@ public:
 								const cv::Mat &decs2,
 								std::vector<cv::DMatch> &matches);
 
+
 	void findEandPruneMatches(	const std::vector<cv::Point2f> 	&pts1,
 								const std::vector<cv::Point2f> 	&pts2,
 								const std::vector<cv::DMatch> 	&matches,
@@ -170,8 +171,8 @@ public:
 	const static int 	MIN_5PTALGO			= 6;
 	const static int 	MIN_TRIANGULATE		= 1;
 	const static double MATCH_RATIO 		= 0.9;
-	const static int 	IMG_KEYPOINTS 		= 1000;
-	const static double HINLIER_THRESH 		= 0.4;
+	const static int 	IMG_KEYPOINTS 		= 3000;//1000;
+	const static double HINLIER_THRESH 		= 0.4;//0.4;
 	const static double HINLIER_THRESH2 	= 0.35;
 	const static float 	REPROJERROR_THRESH 	= 4.0;
 	const static float 	MIN_DIST_TO_CAM 	= 0.0;

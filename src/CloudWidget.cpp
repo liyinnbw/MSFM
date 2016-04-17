@@ -137,7 +137,7 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
         //}
         
       this->SelectedActor->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
-      this->SelectedActor->GetProperty()->SetPointSize(5);
+      this->SelectedActor->GetProperty()->SetPointSize(CloudWidget::POINT_SIZE);
 
       this->CurrentRenderer->AddActor(SelectedActor);
       this->GetInteractor()->GetRenderWindow()->Render();
@@ -280,7 +280,7 @@ void CloudWidget::loadCloud(std::vector<cv::Point3f> &xyzs){
   mapper->SetInputData(input);
 #endif
 
-  actor->GetProperty()->SetPointSize(5);
+  actor->GetProperty()->SetPointSize(POINT_SIZE);
   style->SetPoints(input);
   renderer->ResetCamera();	//move camera to cloud center
   enableInteraction();

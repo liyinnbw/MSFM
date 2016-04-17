@@ -40,20 +40,29 @@ SFMPipeline::SFMPipeline(	const string			&root,
 								   -3.6380704054147735e-02 };
 	*/
 
-	double camMatArr[9] = { 1920, 		0.0, 		960,
-						   0.0, 		1920, 		540,
-						   0.0,			0.0,		1.0 };
 
-	/*double camMatArr[9] = { 4608, 		0.0, 		2304,
-						   0.0, 		4608, 		1536,
-						   0.0,			0.0,		1.0 };*/
-	double distortCoeffArr[5] = { 0, 0,
-								   0, 0,
-								   0 };
+	Mat CM,DM;
+	if(ptCloud.imgs.size()>0){
+		//new project
+		//assume all images are from the same camera and orientation
+		Mat tmp 	= imread(ptCloud.imgRoot+"/"+ptCloud.imgs[0],IMREAD_COLOR);
+		double f	= (tmp.rows>tmp.cols)?tmp.rows:tmp.cols;
+		double ppx	= tmp.cols/2.0;
+		double ppy 	= tmp.rows/2.0;
+		double camMatArr[9] = { f, 		0.0, 		ppx,
+								0.0, 	f, 			ppy,
+								0.0,	0.0,		1.0 };
+		//assume no distorition
+		double distortCoeffArr[5] = { 0, 0, 0, 0, 0 };
 
+		CM = Mat(3, 3, CV_64F, camMatArr);
+		DM = Mat(1, 5, CV_64F, distortCoeffArr);
+	}else{
+		//saved project
+		CM = Mat(3, 3, CV_64F);
+		DM = Mat(1, 5, CV_64F);
 
-	Mat CM(3, 3, CV_64F, camMatArr);
-	Mat DM(1, 5, CV_64F, distortCoeffArr);
+	}
 	camMat = CM.clone();		//must copy the data else they will be destroyed after constructor
 	distortionMat = DM.clone();	//must copy the data else they will be destroyed after constructor
 }
@@ -829,7 +838,27 @@ void SFMPipeline::getKptsAndDecs( 	const int 			imgIdx,
 		detector->compute(img, kpts, decs);
 	}
 }
+/*
+void SFMPipeline::matchFeatures(const Mat &decs1, const Mat &decs2, vector<DMatch> &matches){
+	matches.clear();
+	vector<vector<DMatch> > matchesBidirection;
+	double ratio = MATCH_RATIO;
 
+	BFMatcher matcher(NORM_HAMMING,true); //true means cross check ie. bimatch
+
+	//bimatch
+	matcher.knnMatch(decs1,decs2,matchesBidirection,1);	//12 need closest 2 matches for ratio test later
+
+	for(int i=0; i<matchesBidirection.size(); i++){
+		if(matchesBidirection[i].size()>0){
+		//if(matchesBidirection[i][0].distance/matchesBidirection[i][1].distance< ratio){
+			matches.push_back(matchesBidirection[i][0]);
+		//}
+		}
+	}
+
+}
+*/
 void SFMPipeline::matchFeatures(const Mat &decs1, const Mat &decs2, vector<DMatch> &matches){
 	matches.clear();
 	vector<vector<DMatch> > matches12;
@@ -837,7 +866,9 @@ void SFMPipeline::matchFeatures(const Mat &decs1, const Mat &decs2, vector<DMatc
 	vector<DMatch> 			matches12RatioTested, matches21RatioTested;
 	double ratio = MATCH_RATIO;
 
-	BFMatcher matcher(NORM_HAMMING,false);//(NORM_L2,false);
+	BFMatcher matcher(NORM_HAMMING,false);	//(NORM_L2,false);
+											//from opencv 3.0 documentation:
+											//One of NORM_L1, NORM_L2, NORM_HAMMING, NORM_HAMMING2. L1 and L2 norms are preferable choices for SIFT and SURF descriptors, NORM_HAMMING should be used with ORB, BRISK and BRIEF, NORM_HAMMING2 should be used with ORB when WTA_K==3 or 4 (see ORB::ORB constructor description)
 
 	//bimatch then ratio
 	matcher.knnMatch(decs1,decs2,matches12,2);	//12 need closest 2 matches for ratio test later

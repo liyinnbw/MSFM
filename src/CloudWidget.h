@@ -41,7 +41,7 @@ public:
 	CloudWidget(QWidget *parent = 0);
 	void deletePoints(const QList<int> idxs);
 	void loadCloud(std::vector<cv::Point3f> &xyzs);
-	
+	const static int 			POINT_SIZE = 2;
 
 private:
 	void disableInteraction();
@@ -58,6 +58,8 @@ private:
 	vtkAreaPicker				*areaPicker;
 	vtkRenderWindowInteractor	*renderWindowInteractor;
 	
+
+
 };
 
 #endif
