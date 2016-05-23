@@ -14,6 +14,7 @@
 #include "CoreInterfaceWidget.h"
 #include "core/SFMPipeline.h"
 #include "core/PathReader.h"
+#include "core/ptam/KeyFrame.h"
 
 using namespace std;
 using namespace cv;
@@ -333,6 +334,33 @@ void CoreInterfaceWidget::removeBad(){
 	core->pruneHighReprojectionErrorPoints();
 	emit pointCloudReady();
 }
+void CoreInterfaceWidget::denseReconstruct(){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+}
+
+void CoreInterfaceWidget::computeKeyFrame(const int imgIdx, KeyFrame &kf){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core->computeKeyFrame(imgIdx,kf);
+}
+
 void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	if(!coreIsSet()){
 		QMessageBox messageBox;

@@ -305,6 +305,29 @@ void PtCloud::get2DsHave3D(		vector<Point2f> 	&xys,
 	}
 }
 
+void PtCloud::getCamRvecAndT(	const int					camIdx,
+								cv::Mat						&rvec,
+								cv::Mat 					&t)
+{
+	Mat R(3,3,CV_64F);
+	Mat T(1,3,CV_64F);
+	Mat cam 		  = Mat(camMats[camIdx]);
+	R.at<double>(0,0) = cam.at<double>(0,0);
+	R.at<double>(0,1) = cam.at<double>(0,1);
+	R.at<double>(0,2) = cam.at<double>(0,2);
+	R.at<double>(1,0) = cam.at<double>(1,0);
+	R.at<double>(1,1) = cam.at<double>(1,1);
+	R.at<double>(1,2) = cam.at<double>(1,2);
+	R.at<double>(2,0) = cam.at<double>(2,0);
+	R.at<double>(2,1) = cam.at<double>(2,1);
+	R.at<double>(2,2) = cam.at<double>(2,2);
+	Rodrigues(R,rvec);
+	T.at<double>(0)   = cam.at<double>(0,3);
+	T.at<double>(1)   = cam.at<double>(1,3);
+	T.at<double>(2)   = cam.at<double>(2,3);
+	t 				  = T;
+}
+
 void PtCloud::getCamRvecsAndTs( vector<Mat> 		&rvecs,
 								vector<Mat> 		&ts)
 {

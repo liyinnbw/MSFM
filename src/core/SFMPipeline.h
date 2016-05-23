@@ -14,7 +14,7 @@
 #include <opencv2/core/core.hpp>
 
 #include "PtCloud.h"
-
+struct KeyFrame;
 class SFMPipeline {
 public:
 	SFMPipeline(				const std::string 				&root,
@@ -171,8 +171,8 @@ public:
 	const static int 	MIN_5PTALGO			= 6;
 	const static int 	MIN_TRIANGULATE		= 1;
 	const static double MATCH_RATIO 		= 0.9;
-	const static int 	IMG_KEYPOINTS 		= 3000;//1000;
-	const static double HINLIER_THRESH 		= 0.4;//0.4;
+	const static int 	IMG_KEYPOINTS 		= 2000;
+	const static double HINLIER_THRESH 		= 0.4;
 	const static double HINLIER_THRESH2 	= 0.35;
 	const static float 	REPROJERROR_THRESH 	= 4.0;
 	const static float 	MIN_DIST_TO_CAM 	= 0.0;
@@ -181,6 +181,11 @@ public:
 	const static float 	PNP_MAX_ERROR   	= 8.0;
 	const static double	PNP_CONFIDENCE   	= 0.99;
 	const static float	MEAN_ERROR_THRESH	= 8.0;
+
+
+	//ptam-related staff
+	void computeKeyFrame(		const int 							imgIdx,
+								KeyFrame 							&kf);
 
 };
 

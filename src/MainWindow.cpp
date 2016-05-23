@@ -16,6 +16,8 @@
 #include "MatchWidget.h"
 #include "MatchPanel.h"
 #include "MatchPanelModel.h"
+//#include "KeyFramePanel.h"
+//#include "KeyFrameModel.h"
 #include "core/PathReader.h"
 
 using namespace std;
@@ -47,11 +49,14 @@ void MainWindow::createWidgets()
 	coreInterface 	= new CoreInterfaceWidget;
 	matchPanel 		= new MatchPanel;
 	matchPanelModel = new MatchPanelModel;
+	//keyframePanel 	= new KeyFramePanel;
+	//keyframeModel 	= new KeyFrameModel(coreInterface);
 
 	QSplitter *splitter =  new QSplitter;
 	splitter->setOrientation(Qt::Horizontal);
 
 	splitter->addWidget(matchPanel);
+	//splitter->addWidget(keyframePanel);
 	splitter->addWidget(cloudViewer);
 
 	setCentralWidget(splitter);
@@ -102,6 +107,14 @@ void MainWindow::createActions()
 	removeBadAction->setStatusTip(tr("Remove 3D points with high reprojection error"));
 	connect(removeBadAction, SIGNAL(triggered()), this, SLOT(handleRemoveBad()));
 
+	denseAction = new QAction(tr("&DenseReconstruct"),this);
+	denseAction->setStatusTip(tr("Dense reconstruction using reovered camera poses"));
+	connect(denseAction, SIGNAL(triggered()), this, SLOT(handleDense()));
+
+	//keyframeAction = new QAction(tr("&KeyFrame"),this);
+	//keyframeAction->setStatusTip(tr("Compute KeyFrame"));
+	//connect(keyframeAction, SIGNAL(triggered()), keyframePanel, SLOT(computeKeyFrame()));
+
 }
 
 void MainWindow::createMenus()
@@ -122,17 +135,21 @@ void MainWindow::createToolBars()
     fileToolBar->addAction(openAction);
     fileToolBar->addAction(openSavedAction);
     
-    viewToolBar = addToolBar(tr("View"));
+    sfmToolBar = addToolBar(tr("SFM"));
 
-    viewToolBar->addAction(nextPairAction);
-    viewToolBar->addAction(featureMatchAction);
-    viewToolBar->addAction(checkMatchAction);
-    viewToolBar->addAction(reconstructAction);
-	viewToolBar->addAction(bundleAdjustmentAction);
-	viewToolBar->addAction(removeBadAction);
-	viewToolBar->addAction(saveAction);
+    sfmToolBar->addAction(nextPairAction);
+    sfmToolBar->addAction(featureMatchAction);
+    sfmToolBar->addAction(checkMatchAction);
+    sfmToolBar->addAction(reconstructAction);
+	sfmToolBar->addAction(bundleAdjustmentAction);
+	sfmToolBar->addAction(removeBadAction);
+	sfmToolBar->addAction(saveAction);
+	sfmToolBar->addAction(denseAction);
 
-    helpToolBar = addToolBar(tr("Help"));
+
+	//ptamToolBar = addToolBar(tr("PTAM"));
+	//ptamToolBar->addAction(keyframeAction);
+
     //helpToolBar->addAction(helpAction);
     //helpToolBar->addAction(aboutAction);
 }
@@ -144,10 +161,9 @@ void MainWindow::connectWidgets(){
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
 	connect(coreInterface, SIGNAL(projectLoaded()), this, SLOT(handleProjectLoaded()));
-
-
-	//connect(imgList1, SIGNAL(activated(int)), this, SLOT(handleFirstImageSelected(int)));
-	//connect(imgList2, SIGNAL(activated(int)), this, SLOT(handleSecondImageSelected(int)));
+	//connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
+	//connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
+	//connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
 }
 
 // Slot functions
@@ -157,6 +173,7 @@ void MainWindow::handleProjectLoaded(){
 	QList<QString> imgList;
 	coreInterface->getImagePaths(imgRoot, imgList);
 	matchPanel->setImagePaths(imgRoot, imgList);
+	//keyframePanel->setImagePaths(imgRoot, imgList);
 }
 
 void MainWindow::handleFeatureMatch(){
@@ -210,6 +227,11 @@ void MainWindow::handleRemoveBad(){
 	statusBar()->showMessage(tr("removing bad points..."));
 	coreInterface->removeBad();
 }
+void MainWindow::handleDense(){
+	statusBar()->showMessage(tr("dense reconstructing points..."));
+	coreInterface->denseReconstruct();
+}
+
 void MainWindow::displayPointCloud(){
 	statusBar()->showMessage(tr("loading cloud..."));
 	vector<Point3f> xyzs;
@@ -229,7 +251,7 @@ void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("Open Project"), ".",
-		tr("YAML files (*.yaml)"));
+		tr("YAML files (*.yaml)\nNVM files (*.nvm)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
     	coreInterface -> loadProject(fileName);
@@ -249,6 +271,7 @@ void MainWindow::openDirectory(){
 	 vector<string> sortedImageList;
 	 //PathReader::readPaths(dir.toStdString(),".jpg", sortedImageList);
 	 PathReader::readPaths(dir.toStdString(),".JPG", sortedImageList);
+	 //PathReader::readPaths(dir.toStdString(),".png", sortedImageList);
 	 QList<QString> imageList;
 	 imageList.reserve(sortedImageList.size());
 	 for(int i=0; i<sortedImageList.size(); i++){
@@ -257,6 +280,7 @@ void MainWindow::openDirectory(){
 
 	 coreInterface 	->setImagePaths(imageRoot, imageList);
 	 matchPanel		->setImagePaths(imageRoot, imageList);
+	 //keyframePanel 	->setImagePaths(imageRoot, imageList);
 
 }
 

@@ -19,7 +19,7 @@ class SFMPipeline;
 class QString;
 class QImage;
 class QPointF;
-
+struct KeyFrame;
 class TaskThread : public QThread
 {
     Q_OBJECT
@@ -68,6 +68,7 @@ signals:
 	void projectLoaded();
 	void pointCloudReady();
 	void matchResultReady(const QList<QPointF> &, const QList<QPointF> &);
+	void KeyFrameReady(const QList<QPointF> &);
 	void nextPairReady(const int, const int);
 
 public slots:
@@ -93,6 +94,8 @@ public:
 	void nextPair();
 	void checkMatch(const QList<bool> &);
 	void removeBad();
+	void denseReconstruct();
+	void computeKeyFrame(const int imgIdx, KeyFrame &kf);
 
 private:
 	SFMPipeline 				*core;

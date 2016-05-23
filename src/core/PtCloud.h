@@ -89,6 +89,10 @@ public:
 								std::vector<int>			&imgIdxs,
 								std::vector<int>			&pt3DIdxs);
 
+	void getCamRvecAndT(		const int					camIdx,
+								cv::Mat						&rvec,
+								cv::Mat 					&t);
+
 	void getCamRvecsAndTs( 		std::vector<cv::Mat> 		&rvecs,
 								std::vector<cv::Mat> 		&ts);
 

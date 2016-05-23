@@ -66,8 +66,8 @@ void ImageWidget:: setImage(const QImage &img){
 	//resize the widget to fit the image
 	resize(image.width()*zoom,image.height()*zoom);
 	update();
-
 	emit imageLoaded(image);
+
 }
 
 //setter

@@ -16,6 +16,8 @@ class MatchPanelModel;
 class QToolBar;
 class CoreInterfaceWidget;
 class MatchPanel;
+//class KeyFramePanel;
+//class KeyFrameModel;
 class QString;
 
 class MainWindow: public QMainWindow
@@ -37,6 +39,7 @@ private slots:
 	void handleDeletePointIdx(const QList<int> idxs);
 	void handleCheckMatch();
 	void handleRemoveBad();
+	void handleDense();
 	void displayPointCloud();
 
 private:
@@ -57,15 +60,19 @@ private:
 	QAction 				*checkMatchAction;
 	QAction					*removeBadAction;
 	QAction 				*saveAction;
+	QAction 				*denseAction;
+	//QAction					*keyframeAction;
 	
 	QToolBar 				*fileToolBar;
-    QToolBar 				*viewToolBar;
-    QToolBar 				*helpToolBar;
+    QToolBar 				*sfmToolBar;
+    //QToolBar 				*ptamToolBar;
 
 	CloudWidget 			*cloudViewer;
 	CoreInterfaceWidget 	*coreInterface;
 	MatchPanel 				*matchPanel;
 	MatchPanelModel 		*matchPanelModel;
+	//KeyFramePanel			*keyframePanel;
+	//KeyFrameModel			*keyframeModel;
 
 	QString 				imageRoot;
 };

@@ -17,4 +17,8 @@ public:
 							cv::Mat& cam_matrix,
 							cv::Mat& distortion_coefficients);
 
+	void adjustBundle_sba(	PtCloud &ptCloud,
+							cv::Mat& cam_matrix,
+							cv::Mat& distortion_coefficients);
+
 };

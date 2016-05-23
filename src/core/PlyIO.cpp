@@ -48,6 +48,7 @@ void PlyIO::readPLY(	const string 			&path,
 		iss>>x>>y>>z>>r>>g>>b;
 		xyzs.push_back(Point3f(x,y,z));
 	}
+	infile.close();
 }
 
 void PlyIO::writePLY(	const string				&root,

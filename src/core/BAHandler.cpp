@@ -15,11 +15,12 @@
 
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+#include <cvsba/cvsba.h>
 
 using namespace V3D;
 using namespace std;
 using namespace cv; 
-
+using namespace cvsba;
 
 namespace
 {
@@ -213,4 +214,86 @@ void BAHandler::adjustBundle(	PtCloud &ptCloud,
 	cout<<"focal :"<<f0<<" -> "<<Knew[0][0]<<endl;
 	cout<<"center:("<<ppx<<","<<ppy<<") -> ("<<Knew[0][2]<<","<<Knew[1][2]<<")"<<endl;
 	cout<<"error :"<<meanErrorBefore<<" -> "<<meanErrorAfter<<endl;
+}
+
+void BAHandler::adjustBundle_sba(	PtCloud &ptCloud,
+									Mat& cam_matrix,
+									Mat& distortion_coefficients)
+{
+
+	float error_before;
+	double f_before, ppx_before, ppy_before;
+	ptCloud.getMeanReprojectionError(error_before);
+	f_before 		= cam_matrix.at<double>(0,0);
+	ppx_before 		= cam_matrix.at<double>(0,2);
+	ppy_before		= cam_matrix.at<double>(1,2);
+
+	int M = ptCloud.camMats.size();
+	int N = ptCloud.pt3Ds.size();
+	vector<Point3f> points;
+	ptCloud.getXYZs(points);
+
+	vector<Mat> rvecs, ts;
+	ptCloud.getCamRvecsAndTs(rvecs,ts);
+
+	vector<Mat> cameraMatrix(M,cam_matrix);				//each camera's camMat
+	vector<Mat> distCoeffs(M,distortion_coefficients);	//each camera's distortion
+
+	vector<vector<Point2f> > imagePoints(M,vector<Point2f>(N));
+	vector<vector<int> >	 visibility(M,vector<int>(N,0));
+	for(int i=0; i<N; i++){
+		map<int, int> img_pt2D_idxs = ptCloud.pt3Ds[i].img2ptIdx;
+		for(map<int, int>::iterator i = img_pt2D_idxs.begin(); i != img_pt2D_idxs.end(); i++) {
+			int imgIdx 		= (*i).first;
+			int camIdx 		= ptCloud.img2camMat[imgIdx];
+			int pt2Didx 	= (*i).second;
+			Point2f &pt2d	= ptCloud.img2pt2Ds[imgIdx][pt2Didx].pt;
+			int	pt3Didx		= ptCloud.img2pt2Ds[imgIdx][pt2Didx].pt3D_idx;
+			imagePoints[camIdx][pt3Didx] = pt2d;
+			visibility [camIdx][pt3Didx] = 1;
+		}
+	}
+
+	Sba sba;
+	Sba::Params runParams( Sba::MOTIONSTRUCTURE,50, 1e-3, 5, 5, false);
+	sba.setParams(runParams);
+	double error = sba.run (  points, imagePoints, visibility, cameraMatrix, rvecs, ts,distCoeffs);
+
+	//extract 3D points
+	for (int i = 0; i < N; i++)
+	{
+		ptCloud.pt3Ds[i].pt.x = (float) points[i].x;
+		ptCloud.pt3Ds[i].pt.y = (float) points[i].y;
+		ptCloud.pt3Ds[i].pt.z = (float) points[i].z;
+	}
+
+	//extract adjusted cameras
+	for (int i = 0; i < M; i++)
+	{
+		Mat R;
+		Rodrigues(rvecs[i],R);
+
+		Matx34d P =	Matx34d(R.at<double>(0,0),	R.at<double>(0,1),	R.at<double>(0,2),	ts[i].at<double>(0),
+							R.at<double>(1,0),	R.at<double>(1,1),	R.at<double>(1,2),	ts[i].at<double>(1),
+							R.at<double>(2,0),	R.at<double>(2,1),	R.at<double>(2,2),	ts[i].at<double>(2));
+
+		ptCloud.camMats[i] = P;
+	}
+
+	cam_matrix 				= cameraMatrix[0];
+	distortion_coefficients	= distCoeffs[0];
+
+
+	float error_after;
+	double f_after, ppx_after, ppy_after;
+	ptCloud.updateReprojectionErrors(cam_matrix,distortion_coefficients);
+	ptCloud.getMeanReprojectionError(error_after);
+	f_after 		= cam_matrix.at<double>(0,0);
+	ppx_after 		= cam_matrix.at<double>(0,2);
+	ppy_after		= cam_matrix.at<double>(1,2);
+
+	cout<<"focal :"<<f_before<<" -> "<<f_after<<endl;
+	cout<<"center:("<<ppx_before<<","<<ppy_before<<") -> ("<<ppx_after<<","<<ppy_after<<")"<<endl;
+	cout<<"error :"<<error_before<<" -> "<<error<<"(="<<error_after<<")"<<endl;
+
 }

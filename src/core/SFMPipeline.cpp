@@ -47,6 +47,8 @@ SFMPipeline::SFMPipeline(	const string			&root,
 		//assume all images are from the same camera and orientation
 		Mat tmp 	= imread(ptCloud.imgRoot+"/"+ptCloud.imgs[0],IMREAD_COLOR);
 		double f	= (tmp.rows>tmp.cols)?tmp.rows:tmp.cols;
+		//TODO:delete the line blow
+		f = 507.7488;
 		double ppx	= tmp.cols/2.0;
 		double ppy 	= tmp.rows/2.0;
 		double camMatArr[9] = { f, 		0.0, 		ppx,
@@ -998,7 +1000,8 @@ void SFMPipeline::maskMatchesNo3D(	const int				imgIdx1,
 
 void SFMPipeline::bundleAdjustment(){
 	BAHandler BA;
-	BA.adjustBundle(ptCloud,camMat,distortionMat);
+	//BA.adjustBundle(ptCloud,camMat,distortionMat);
+	BA.adjustBundle_sba(ptCloud,camMat,distortionMat);
 }
 
 void SFMPipeline::computeMeanReprojectionError(){
@@ -1076,4 +1079,39 @@ void SFMPipeline::saveProject(			const string 				&root,
 void SFMPipeline::loadProject(			const string				&fname)
 {
 	ProjectIO::readProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+}
+
+#include "ptam/KeyFrame.h"
+#include <cvd/image.h>
+#include <cvd/byte.h>
+#include <cvd/vision.h>
+#include <TooN/se3.h>
+#include <TooN/so3.h>
+#include <TooN/TooN.h>
+
+void SFMPipeline::computeKeyFrame(		const int 					imgIdx,
+										KeyFrame					&kf){
+
+	//basic initialization of keyframe of an image
+	Mat img 	= imread(ptCloud.imgRoot+"/"+ptCloud.imgs[imgIdx],IMREAD_COLOR);
+	cvtColor(img,img,cv::COLOR_BGR2GRAY);
+	CVD::Image<CVD::byte > im;
+	im.resize(CVD::ImageRef(img.cols, img.rows));
+	CVD::BasicImage<CVD::byte> img_tmp(img.ptr(), CVD::ImageRef(img.cols, img.rows));
+	CVD::copy(img_tmp, im);
+	kf.MakeKeyFrame_Lite(im);
+
+	//if the camera projection matrix is known, add it to keyframe
+	if(ptCloud.img2camMat.find(imgIdx) != ptCloud.img2camMat.end()){
+		int camIdx = ptCloud.img2camMat[imgIdx];
+		Mat r, t;
+		ptCloud.getCamRvecAndT(camIdx, r, t);
+		double t_data[3] = {t.at<double>(0), t.at<double>(1), t.at<double>(2)};
+		double r_data[3] = {r.at<double>(0), r.at<double>(1), r.at<double>(2)};
+		TooN::Vector <3,double,TooN::Reference> toon_vecT(t_data);
+		TooN::Vector <3,double,TooN::Reference> toon_vecR(r_data);
+		TooN::SO3<double> toon_so3R(toon_vecR);
+		kf.se3CfromW = SE3<double>(toon_so3R,toon_vecT);
+
+	}
 }
