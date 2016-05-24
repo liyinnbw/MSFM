@@ -15,6 +15,7 @@
 #include <vtkPlanes.h>
 #include <vtkObjectFactory.h>
 #include <vtkPoints.h>
+#include <vtkLine.h>
 #include <vtkCellArray.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
@@ -23,6 +24,7 @@
 #include <vtkRenderer.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkPolyData.h>
+#include <vtkCellData.h>
 #include <vtkPointSource.h>
 #include <vtkInteractorStyleRubberBandPick.h>
 #include <vtkAreaPicker.h>
@@ -132,9 +134,9 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
 
       //vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(selected->GetPointData()->GetArray("OriginalIds"));
       //for(vtkIdType i = 0; i < ids->GetNumberOfTuples(); i++)
-        //{
-        //std::cout << "Id " << i << " : " << ids->GetValue(i) << std::endl;
-        //}
+      //  {
+      //  std::cout << "Id " << i << " : " << ids->GetValue(i) << std::endl;
+      //}
         
       this->SelectedActor->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
       this->SelectedActor->GetProperty()->SetPointSize(CloudWidget::POINT_SIZE);
@@ -154,12 +156,19 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
 		vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(SelectedMapper->GetInput()->GetPointData()->GetArray("OriginalIds"));
 		QList<int> deleteIdxs;
 		deleteIdxs.reserve(ids->GetNumberOfTuples());
+
 		for(vtkIdType i = 0; i < ids->GetNumberOfTuples(); i++)
         {
+			int originalID = ids->GetValue(i);
+			if(	originalID<parentWidget->numCloudPoints){
         	//std::cout << "delete " << i << " : " << ids->GetValue(i) << std::endl;
-			deleteIdxs.push_back(ids->GetValue(i));
+				deleteIdxs.push_back(ids->GetValue(i));
+        	}else{
+        		//std::cout << "point " << i << " : " << originalID<<" is a camera point" << std::endl;
+        	}
         }
 		parentWidget->deletePoints(deleteIdxs);
+
 	}
 	void setWidget(CloudWidget *widget){
 		parentWidget = widget;
@@ -191,7 +200,8 @@ CloudWidget:: CloudWidget(QWidget *parent)
   
   // Create a mapper and actor
   mapper = vtkPolyDataMapper::New();
-  mapper->ScalarVisibilityOff();
+  //mapper->ScalarVisibilityOff();
+  mapper->ScalarVisibilityOn(); //default on, if off, scalar color will not be applied, all geometry will be white
   actor = vtkActor::New();
   actor->SetMapper(mapper);
   
@@ -203,7 +213,8 @@ CloudWidget:: CloudWidget(QWidget *parent)
   //vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
   renderWindow = GetRenderWindow();
   renderWindow->AddRenderer(renderer);
-  
+
+
   //QT VtkWidget already has a renderWindowInteractor need not to create a new one.
   //vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
   renderWindowInteractor = GetInteractor();
@@ -222,6 +233,8 @@ CloudWidget:: CloudWidget(QWidget *parent)
   //renderWindowInteractor->Start();
 
   disableInteraction(); //initially do not handle input event
+
+  numCloudPoints = 0;
 }
 void CloudWidget::deletePoints(const QList<int> idxs){
 
@@ -239,12 +252,153 @@ void CloudWidget::loadCloud( QString fileName ){
 	vector<Point3f> xyzs;
 	string fname = fileName.toStdString();
 	PlyIO::readPLY(fname, xyzs);
-	loadCloud(xyzs);
+	loadCloudAndCamera(xyzs, vector<Matx34d>());
 	enableInteraction();
 
 }
+void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Matx34d> &cameras){
+	disableInteraction();
 
-void CloudWidget::loadCloud(std::vector<cv::Point3f> &xyzs){
+	//constants
+	unsigned char red[3] = {255, 0, 0};
+	unsigned char green[3] = {0, 255, 0};
+	unsigned char blue[3] = {0, 0, 255};
+	unsigned char white[3] = {255, 255, 255};
+
+	//insert points to vtk data structure
+	// Create the geometry of a point (the coordinate)
+	vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+	// Create the topology of the point (a vertex)
+	vtkSmartPointer<vtkCellArray> vertices = vtkSmartPointer<vtkCellArray>::New();
+	// Create the topology of the line (an edge)
+	vtkSmartPointer<vtkCellArray> edges = vtkSmartPointer<vtkCellArray>::New();
+	// Create colors
+	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+	colors->SetNumberOfComponents(3);
+	colors->SetName ("Colors");
+
+	//add cloud points
+	numCloudPoints = xyzs.size();
+	vtkIdType pid[numCloudPoints];//temp array to store point ids for create vertices
+	for(int i=0; i<numCloudPoints; i++){
+		pid[i] = points->InsertNextPoint(xyzs[i].x, xyzs[i].y, xyzs[i].z);
+	}
+	//create vertices from point ids
+	vertices->InsertNextCell(numCloudPoints,pid);
+	//inert cell color for the vertices
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(white);
+	#else
+		colors->InsertNextTypedTuple(white);
+	#endif
+
+
+	//add camera points & edges
+	for(int n=0; n<cameras.size(); n++){
+		double TRx = cameras[n](0,3);
+		double TRy = cameras[n](1,3);
+		double TRz = cameras[n](2,3);
+
+		double Ix0  = cameras[n](0,0);
+		double Iy0  = cameras[n](0,1);
+		double Iz0  = cameras[n](0,2);
+
+		double Jx0  = cameras[n](1,0);
+		double Jy0  = cameras[n](1,1);
+		double Jz0  = cameras[n](1,2);
+
+		double Kx0  = cameras[n](2,0);
+		double Ky0  = cameras[n](2,1);
+		double Kz0  = cameras[n](2,2);
+
+		double Tx  = -TRx*Ix0 -TRy*Jx0 -TRz*Kx0;
+		double Ty  = -TRx*Iy0 -TRy*Jy0 -TRz*Ky0;
+		double Tz  = -TRx*Iz0 -TRy*Jz0 -TRz*Kz0;
+
+		double Ix  = Tx + cameras[n](0,0);
+		double Iy  = Ty + cameras[n](0,1);
+		double Iz  = Tz + cameras[n](0,2);
+
+		double Jx  = Tx + cameras[n](1,0);
+		double Jy  = Ty + cameras[n](1,1);
+		double Jz  = Tz + cameras[n](1,2);
+
+		double Kx  = Tx + cameras[n](2,0);
+		double Ky  = Ty + cameras[n](2,1);
+		double Kz  = Tz + cameras[n](2,2);
+
+		//create & insert points
+		vtkIdType idT    = points->InsertNextPoint(Tx, Ty, Tz);
+		vtkIdType idI    = points->InsertNextPoint(Ix, Iy, Iz);
+		vtkIdType idJ    = points->InsertNextPoint(Jx, Jy, Jz);
+		vtkIdType idK    = points->InsertNextPoint(Kx, Ky, Kz);
+
+		//create edges
+		vtkSmartPointer<vtkLine> edgeI = vtkSmartPointer<vtkLine>::New();
+		edgeI->GetPointIds()->SetId(0, idT);
+		edgeI->GetPointIds()->SetId(1, idI);
+		vtkSmartPointer<vtkLine> edgeJ = vtkSmartPointer<vtkLine>::New();
+		edgeJ->GetPointIds()->SetId(0, idT);
+		edgeJ->GetPointIds()->SetId(1, idJ);
+		vtkSmartPointer<vtkLine> edgeK = vtkSmartPointer<vtkLine>::New();
+		edgeK->GetPointIds()->SetId(0, idT);
+		edgeK->GetPointIds()->SetId(1, idK);
+
+		//insert edges
+		edges->InsertNextCell(edgeI);
+		edges->InsertNextCell(edgeJ);
+		edges->InsertNextCell(edgeK);
+
+		//insert cell colors for edges
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(red);
+		colors->InsertNextTupleValue(green);
+		colors->InsertNextTupleValue(blue);
+	#else
+		colors->InsertNextTypedTuple(red);
+		colors->InsertNextTypedTuple(green);
+		colors->InsertNextTypedTuple(blue);
+	#endif
+
+	}
+
+  pointsData = vtkPolyData::New();
+  pointsData->SetPoints(points);
+  pointsData->SetVerts(vertices);
+  pointsData->SetLines(edges);
+  pointsData->GetCellData()->SetScalars(colors);
+  //pointsData->GetPointData()->SetScalars(colors);
+
+
+  idFilter = vtkIdFilter::New();
+  idFilter->SetInput(pointsData);
+  idFilter->SetIdsArrayName("OriginalIds");
+  idFilter->Update();
+
+  surfaceFilter = vtkDataSetSurfaceFilter::New();
+  surfaceFilter->SetInputConnection(idFilter->GetOutputPort());
+  surfaceFilter->Update();
+
+  vtkPolyData* input = surfaceFilter->GetOutput();
+
+
+#if VTK_MAJOR_VERSION <= 5
+  mapper->SetInputConnection(pointsData->GetProducerPort());
+  //mapper->SetInput(pointsData); //alternative way to set mapper data
+#else
+  mapper->SetInputData(input);
+#endif
+
+  actor->GetProperty()->SetPointSize(POINT_SIZE);
+  style->SetPoints(input); //note input != pointsdata
+  //style->SetPoints(pointsData);
+
+  renderer->ResetCamera();	//move camera to cloud center
+
+  enableInteraction();
+}
+/*
+void CloudWidget::loadCloud(const vector<Point3f> &xyzs){
 	disableInteraction();
 	//insert points to vtk data structure
 	// Create the geometry of a point (the coordinate)
@@ -284,4 +438,4 @@ void CloudWidget::loadCloud(std::vector<cv::Point3f> &xyzs){
   style->SetPoints(input);
   renderer->ResetCamera();	//move camera to cloud center
   enableInteraction();
-}
+}*/

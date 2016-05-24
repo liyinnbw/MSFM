@@ -48,7 +48,7 @@ SFMPipeline::SFMPipeline(	const string			&root,
 		Mat tmp 	= imread(ptCloud.imgRoot+"/"+ptCloud.imgs[0],IMREAD_COLOR);
 		double f	= (tmp.rows>tmp.cols)?tmp.rows:tmp.cols;
 		//TODO:delete the line blow
-		f = 507.7488;
+		//f = 507.7488;
 		double ppx	= tmp.cols/2.0;
 		double ppy 	= tmp.rows/2.0;
 		double camMatArr[9] = { f, 		0.0, 		ppx,
@@ -1000,8 +1000,8 @@ void SFMPipeline::maskMatchesNo3D(	const int				imgIdx1,
 
 void SFMPipeline::bundleAdjustment(){
 	BAHandler BA;
-	//BA.adjustBundle(ptCloud,camMat,distortionMat);
-	BA.adjustBundle_sba(ptCloud,camMat,distortionMat);
+	BA.adjustBundle(ptCloud,camMat,distortionMat);
+	//BA.adjustBundle_sba(ptCloud,camMat,distortionMat);
 }
 
 void SFMPipeline::computeMeanReprojectionError(){

@@ -171,7 +171,7 @@ public:
 	const static int 	MIN_5PTALGO			= 6;
 	const static int 	MIN_TRIANGULATE		= 1;
 	const static double MATCH_RATIO 		= 0.9;
-	const static int 	IMG_KEYPOINTS 		= 2000;
+	const static int 	IMG_KEYPOINTS 		= 1000;
 	const static double HINLIER_THRESH 		= 0.4;
 	const static double HINLIER_THRESH2 	= 0.35;
 	const static float 	REPROJERROR_THRESH 	= 4.0;

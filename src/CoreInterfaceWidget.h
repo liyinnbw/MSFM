@@ -89,6 +89,7 @@ public:
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
+	void getCameras(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
 	bool coreIsSet(){return core!=NULL;}
 	void nextPair();

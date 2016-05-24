@@ -374,7 +374,19 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	}
 	core-> ptCloud.getXYZs(xyzs);
 }
-
+void CoreInterfaceWidget::getCameras(vector<Matx34d> &cams){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cams = core->ptCloud.camMats;
+}
 void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
 	if(!coreIsSet()){
 		QMessageBox messageBox;

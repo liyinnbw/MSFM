@@ -236,7 +236,10 @@ void MainWindow::displayPointCloud(){
 	statusBar()->showMessage(tr("loading cloud..."));
 	vector<Point3f> xyzs;
 	coreInterface->getPointCloud(xyzs);
-	cloudViewer->loadCloud(xyzs);
+	vector<Matx34d> cams;
+	coreInterface->getCameras(cams);
+	//cloudViewer->loadCloud(xyzs);
+	cloudViewer->loadCloudAndCamera(xyzs,cams);
 	statusBar()->showMessage(tr("cloud loaded"));
 	
 	//also update imgList2 to include only used images

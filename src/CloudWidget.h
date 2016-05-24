@@ -40,9 +40,10 @@ public slots:
 public:
 	CloudWidget(QWidget *parent = 0);
 	void deletePoints(const QList<int> idxs);
-	void loadCloud(std::vector<cv::Point3f> &xyzs);
+	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
+	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams);
 	const static int 			POINT_SIZE = 2;
-
+	int 						numCloudPoints;
 private:
 	void disableInteraction();
 	void enableInteraction();
@@ -58,6 +59,7 @@ private:
 	vtkAreaPicker				*areaPicker;
 	vtkRenderWindowInteractor	*renderWindowInteractor;
 	
+
 
 
 };
