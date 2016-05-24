@@ -419,6 +419,25 @@ void CoreInterfaceWidget::getAll3DfromImage2D(	const int 					imgIdx,
 		core->ptCloud.getAll3DfromImage2D(imgIdx,pts3D,pts3DIdxs);
 	}
 }
+void CoreInterfaceWidget::getCameraIdx(			const int 					imgIdx,
+												int 						&camIdx)
+{
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	if(core->ptCloud.imageIsUsed(imgIdx)){
+		camIdx = core->ptCloud.img2camMat[imgIdx];
+	}else{
+		camIdx = -1;
+	}
+}
 
 void CoreInterfaceWidget::saveCloud(){
 	if(!coreIsSet()){

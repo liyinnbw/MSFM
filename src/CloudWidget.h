@@ -35,7 +35,7 @@ signals:
 
 public slots:
 	void loadCloud(QString fileName);
-	void highlightPointIdx(const QList<int> idxs);
+	void highlightPointIdx(const QList<int> idxs, const int camIdx);
 
 	
 public:
@@ -43,7 +43,8 @@ public:
 	void deletePoints(const QList<int> idxs);
 	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
 	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams);
-	const static int 			POINT_SIZE = 2;
+	const static int 			POINT_SIZE = 3;
+	const static int 			LINE_WIDTH = 2;
 	int 						numCloudPoints;
 private:
 	void disableInteraction();

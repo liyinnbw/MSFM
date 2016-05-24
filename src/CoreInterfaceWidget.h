@@ -94,6 +94,8 @@ public:
 	void getAll3DfromImage2D(	const int 					imgIdx,
 								std::vector<cv::Point3f>	&pts3D,
 								std::vector<int>			&pts3DIdxs);
+	void getCameraIdx(			const int 					imgIdx,
+								int 						&camIdx);
 	bool coreIsSet(){return core!=NULL;}
 	void nextPair();
 	void checkMatch(const QList<bool> &);

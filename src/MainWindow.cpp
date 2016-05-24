@@ -253,7 +253,13 @@ void MainWindow::displayPointCloud(){
 }
 
 void MainWindow::highlightPoints(const int imgIdx){
-	displayPointCloud();
+	displayPointCloud();	//to reset previous highlights just reload the point cloud
+
+	int camIdx;
+	coreInterface->getCameraIdx(imgIdx,camIdx);
+	if(camIdx<0) return;
+
+
 	vector<Point3f> xyzs;
 	vector<int>		highlightIdxs;
 	coreInterface->getAll3DfromImage2D(imgIdx,xyzs,highlightIdxs);
@@ -261,7 +267,7 @@ void MainWindow::highlightPoints(const int imgIdx){
 	for(int i=0; i<highlightIdxs.size(); i++){
 		idxs.push_back(highlightIdxs[i]);
 	}
-	cloudViewer->highlightPointIdx(idxs);
+	cloudViewer->highlightPointIdx(idxs, camIdx);
 }
 void MainWindow::openFile()
 {

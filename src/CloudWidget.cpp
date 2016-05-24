@@ -241,10 +241,13 @@ void CloudWidget::deletePoints(const QList<int> idxs){
 	disableInteraction(); //prevent further ui inputs untill refresh
 	emit deletePointIdx(idxs);
 }
-void CloudWidget::highlightPointIdx(const QList<int> idxs){
+void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	if(pointsData == NULL) return;
 	cout<<idxs.size()<<" points to highlight"<<endl;
 	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
+	vtkIdType numOfPoints;
+	vtkIdType *pointIDs;
+	vertices->GetCell(0, numOfPoints,pointIDs);
 	//int numCells = vertices->GetNumberOfCells();
 	//for(int i=0; i<numCells; i++){
 	//	vtkIdType numOfPoints;
@@ -284,6 +287,23 @@ void CloudWidget::highlightPointIdx(const QList<int> idxs){
 
 	//cout<<"total scalar tuples after = "<<colors->GetNumberOfTuples()<<endl;
 
+	vtkSmartPointer<vtkCellArray> edges = pointsData->GetLines();
+	cout<<"edges before = "<<edges->GetNumberOfCells()<<endl;
+	cout<<"total scalar tuples before = "<<colors->GetNumberOfTuples()<<endl;
+	vtkIdType camCenterPtId = numOfPoints+camIdx*4;
+	for(int i=0; i<idxs.size(); i++){
+		vtkSmartPointer<vtkLine> edge = vtkSmartPointer<vtkLine>::New();
+		edge->GetPointIds()->SetId(0, camCenterPtId);
+		edge->GetPointIds()->SetId(1, idxs[i]);
+		edges->InsertNextCell(edge);
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(highlightColor);
+	#else
+		colors->InsertNextTypedTuple(highlightColor);
+	#endif
+	}
+	cout<<"edges after = "<<edges->GetNumberOfCells()<<endl;
+	cout<<"total scalar tuples after = "<<colors->GetNumberOfTuples()<<endl;
 	pointsData->Modified(); //to trigger an UI update
 }
 void CloudWidget::disableInteraction(){
@@ -444,6 +464,7 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
 #endif
 
   actor->GetProperty()->SetPointSize(POINT_SIZE);
+  actor->GetProperty()->SetLineWidth(LINE_WIDTH);
   style->SetPoints(input); //note input != pointsdata
   //style->SetPoints(pointsData);
 
