@@ -91,6 +91,7 @@ void MatchPanel::handleFirstImageSelected(int idx){
 	if(imgList1->currentIndex()>0){
 		cout<<"1st image:["<<idx-1<<"]"<<imgList1->itemText(idx).toStdString()<<endl;
 		imageView1->setImage(imgRoot+"/"+imgList1->itemText(idx));
+		emit firstImageSelected(idx-1);
 	}
 
 }

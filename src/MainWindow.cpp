@@ -115,6 +115,8 @@ void MainWindow::createActions()
 	//keyframeAction->setStatusTip(tr("Compute KeyFrame"));
 	//connect(keyframeAction, SIGNAL(triggered()), keyframePanel, SLOT(computeKeyFrame()));
 
+	tmp = new QAction(tr("&tmp"),this);
+	connect(tmp, SIGNAL(triggered()), this, SLOT(highlightPoints()));
 }
 
 void MainWindow::createMenus()
@@ -145,7 +147,7 @@ void MainWindow::createToolBars()
 	sfmToolBar->addAction(removeBadAction);
 	sfmToolBar->addAction(saveAction);
 	sfmToolBar->addAction(denseAction);
-
+	sfmToolBar->addAction(tmp);
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
 	//ptamToolBar->addAction(keyframeAction);
@@ -161,6 +163,7 @@ void MainWindow::connectWidgets(){
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
 	connect(coreInterface, SIGNAL(projectLoaded()), this, SLOT(handleProjectLoaded()));
+	connect(matchPanel, SIGNAL(firstImageSelected(const int)), this, SLOT(highlightPoints(const int)));
 	//connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
 	//connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
 	//connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
@@ -249,7 +252,17 @@ void MainWindow::displayPointCloud(){
 
 }
 
-
+void MainWindow::highlightPoints(const int imgIdx){
+	displayPointCloud();
+	vector<Point3f> xyzs;
+	vector<int>		highlightIdxs;
+	coreInterface->getAll3DfromImage2D(imgIdx,xyzs,highlightIdxs);
+	QList<int> idxs;
+	for(int i=0; i<highlightIdxs.size(); i++){
+		idxs.push_back(highlightIdxs[i]);
+	}
+	cloudViewer->highlightPointIdx(idxs);
+}
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,

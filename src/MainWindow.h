@@ -41,6 +41,7 @@ private slots:
 	void handleRemoveBad();
 	void handleDense();
 	void displayPointCloud();
+	void highlightPoints(const int imgIdx);
 
 private:
     void createWidgets();
@@ -62,6 +63,7 @@ private:
 	QAction 				*saveAction;
 	QAction 				*denseAction;
 	//QAction					*keyframeAction;
+	QAction					*tmp;
 	
 	QToolBar 				*fileToolBar;
     QToolBar 				*sfmToolBar;

@@ -401,6 +401,25 @@ void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
 	core->ptCloud.getUsedImageIdxs(usedImgIdxs);
 }
 
+void CoreInterfaceWidget::getAll3DfromImage2D(	const int 					imgIdx,
+												std::vector<cv::Point3f>	&pts3D,
+												std::vector<int>			&pts3DIdxs)
+{
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	if(core->ptCloud.imageIsUsed(imgIdx)){
+		core->ptCloud.getAll3DfromImage2D(imgIdx,pts3D,pts3DIdxs);
+	}
+}
+
 void CoreInterfaceWidget::saveCloud(){
 	if(!coreIsSet()){
 		QMessageBox messageBox;

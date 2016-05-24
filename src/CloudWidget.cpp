@@ -241,6 +241,51 @@ void CloudWidget::deletePoints(const QList<int> idxs){
 	disableInteraction(); //prevent further ui inputs untill refresh
 	emit deletePointIdx(idxs);
 }
+void CloudWidget::highlightPointIdx(const QList<int> idxs){
+	if(pointsData == NULL) return;
+	cout<<idxs.size()<<" points to highlight"<<endl;
+	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
+	//int numCells = vertices->GetNumberOfCells();
+	//for(int i=0; i<numCells; i++){
+	//	vtkIdType numOfPoints;
+	//	vtkIdType *pointIDs;
+	//	vertices->GetCell(i, numOfPoints,pointIDs);
+	//	cout<<"cell "<<i<<" vertices = "<<numOfPoints<<endl;
+	//}
+
+	vtkIdType highlightPid[idxs.size()];
+	for(int i=0; i<idxs.size(); i++){
+		highlightPid[i] = idxs[i];
+	}
+	vertices->InsertNextCell(idxs.size(),highlightPid);
+
+	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkUnsignedCharArray::SafeDownCast(pointsData->GetCellData()->GetScalars("Colors"));
+	//cout<<"total scalar tuples before = "<<colors->GetNumberOfTuples()<<endl;
+	unsigned char highlightColor[3] = {255, 0, 255};	//purple
+
+	//just to add a new tuple, value doesnt matter
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(highlightColor);
+	#else
+		colors->InsertNextTypedTuple(highlightColor);
+	#endif
+
+	//shift tuples with idx>= 1 to the right by 1
+	for(int i=colors->GetNumberOfTuples()-1; i>1; i--){
+		colors->InsertTuple(i,colors->GetTuple(i-1));
+	}
+
+	//add the new tuple to idx 1
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertTupleValue(1, highlightColor);
+	#else
+		colors->InsertTypedTuple(1, highlightColor);
+	#endif
+
+	//cout<<"total scalar tuples after = "<<colors->GetNumberOfTuples()<<endl;
+
+	pointsData->Modified(); //to trigger an UI update
+}
 void CloudWidget::disableInteraction(){
 	style->setActive(false);
 }
@@ -279,12 +324,21 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
 
 	//add cloud points
 	numCloudPoints = xyzs.size();
+	cout<<"numCloudPoints = "<<numCloudPoints<<endl;
 	vtkIdType pid[numCloudPoints];//temp array to store point ids for create vertices
 	for(int i=0; i<numCloudPoints; i++){
 		pid[i] = points->InsertNextPoint(xyzs[i].x, xyzs[i].y, xyzs[i].z);
 	}
 	//create vertices from point ids
 	vertices->InsertNextCell(numCloudPoints,pid);
+	int numCells = vertices->GetNumberOfCells();
+	for(int i=0; i<numCells; i++){
+		vtkIdType numOfPoints;
+		vtkIdType *pointIDs;
+		vertices->GetCell(i, numOfPoints,pointIDs);
+		assert(numOfPoints == numCloudPoints);
+	}
+
 	//inert cell color for the vertices
 	#if VTK_MAJOR_VERSION < 7
 		colors->InsertNextTupleValue(white);

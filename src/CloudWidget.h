@@ -35,6 +35,7 @@ signals:
 
 public slots:
 	void loadCloud(QString fileName);
+	void highlightPointIdx(const QList<int> idxs);
 
 	
 public:
