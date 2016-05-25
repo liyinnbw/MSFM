@@ -49,6 +49,7 @@ void MainWindow::createWidgets()
 	coreInterface 	= new CoreInterfaceWidget;
 	matchPanel 		= new MatchPanel;
 	matchPanelModel = new MatchPanelModel;
+	commandBox		= new QLineEdit;
 	//keyframePanel 	= new KeyFramePanel;
 	//keyframeModel 	= new KeyFrameModel(coreInterface);
 
@@ -59,9 +60,15 @@ void MainWindow::createWidgets()
 	//splitter->addWidget(keyframePanel);
 	splitter->addWidget(cloudViewer);
 
-	setCentralWidget(splitter);
-	
-	setGeometry(0, 0, 800, 800);
+	QVBoxLayout  *vl= new QVBoxLayout;
+	vl->addWidget(splitter);
+	vl->addWidget(commandBox);
+
+	QWidget *centralWidget = new QWidget;
+	centralWidget->setLayout(vl);
+
+	setCentralWidget(centralWidget);
+	setGeometry(0, 0, 1000, 800);
 }
 
 void MainWindow::createActions()
@@ -115,8 +122,6 @@ void MainWindow::createActions()
 	//keyframeAction->setStatusTip(tr("Compute KeyFrame"));
 	//connect(keyframeAction, SIGNAL(triggered()), keyframePanel, SLOT(computeKeyFrame()));
 
-	tmp = new QAction(tr("&tmp"),this);
-	connect(tmp, SIGNAL(triggered()), this, SLOT(highlightPoints()));
 }
 
 void MainWindow::createMenus()
@@ -147,7 +152,6 @@ void MainWindow::createToolBars()
 	sfmToolBar->addAction(removeBadAction);
 	sfmToolBar->addAction(saveAction);
 	sfmToolBar->addAction(denseAction);
-	sfmToolBar->addAction(tmp);
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
 	//ptamToolBar->addAction(keyframeAction);
@@ -157,13 +161,15 @@ void MainWindow::createToolBars()
 }
 
 void MainWindow::connectWidgets(){
+	connect(commandBox, SIGNAL(returnPressed()), this, SLOT(handleLineCommand()));
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
 	connect(coreInterface, SIGNAL(pointCloudReady()), this, SLOT(displayPointCloud()));
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
 	connect(coreInterface, SIGNAL(projectLoaded()), this, SLOT(handleProjectLoaded()));
-	connect(matchPanel, SIGNAL(firstImageSelected(const int)), this, SLOT(highlightPoints(const int)));
+	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), this, SLOT(highlightPoints(const int, const int)));
+	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), matchPanelModel, SLOT(setImages(const int, const int)));
 	//connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
 	//connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
 	//connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
@@ -234,7 +240,88 @@ void MainWindow::handleDense(){
 	statusBar()->showMessage(tr("dense reconstructing points..."));
 	coreInterface->denseReconstruct();
 }
+void MainWindow::handleLineCommand(){
+	QString s = commandBox->text();
+	commandBox->clear();
+	QStringList tokens = s.split(' ', QString::SkipEmptyParts);
+	if(tokens[0].toLower().compare("overlap")==0){
+		cout<<"command show overlapping images"<<endl;
+		int baseImgIdx = tokens[1].toInt();
+		int camIdx;
+		coreInterface->getCameraIdx(baseImgIdx,camIdx);
+		if(camIdx>=0){
+			displayPointCloud();
+			map<int,vector<int> > img2pt3Didxs;
+			coreInterface->getOverlappingImgs(baseImgIdx,img2pt3Didxs);
+			for(map<int,vector<int> >::iterator it=img2pt3Didxs.begin(); it!=img2pt3Didxs.end(); ++it){
+				int overlapCamIdx;
+				coreInterface->getCameraIdx(it->first,overlapCamIdx);
+				cout<<"img["<<it->first<<"] cam["<<overlapCamIdx<<"] sees "<<it->second.size()<<" points from img["<<baseImgIdx<<"] cam["<<camIdx<<"]"<<endl;
+				QList<int> idxs;
+				for(int i=0; i<it->second.size(); i++){
+					idxs.push_back(it->second[i]);
+				}
+				cloudViewer->highlightPointIdx(idxs, overlapCamIdx);
+			}
 
+		}else{
+			cout<<"ERROR: image is not used. must select an image that is used."<<endl;
+		}
+	}else if(tokens[0].toLower().compare("bestoverlap")==0){
+		cout<<"command show best overlapping"<<endl;
+		int baseImgIdx = tokens[1].toInt();
+		int camIdx;
+		coreInterface->getCameraIdx(baseImgIdx,camIdx);
+		if(camIdx>=0){
+			displayPointCloud();
+			map<int,vector<int> > img2pt3Didxs;
+			coreInterface->getBestOverlappingImgs(baseImgIdx,img2pt3Didxs);
+			for(map<int,vector<int> >::iterator it=img2pt3Didxs.begin(); it!=img2pt3Didxs.end(); ++it){
+				int overlapCamIdx;
+				coreInterface->getCameraIdx(it->first,overlapCamIdx);
+				cout<<"img["<<it->first<<"] cam["<<overlapCamIdx<<"] sees "<<it->second.size()<<" points from img["<<baseImgIdx<<"] cam["<<camIdx<<"]"<<endl;
+				QList<int> idxs;
+				for(int i=0; i<it->second.size(); i++){
+					idxs.push_back(it->second[i]);
+				}
+				cloudViewer->highlightPointIdx(idxs, overlapCamIdx);
+			}
+		}else{
+			cout<<"ERROR: image is not used. must select an image that is used."<<endl;
+		}
+	}else if(tokens[0].toLower().compare("highlight")==0){
+		int cnt = tokens.size() - 1;
+		cout<<"command highlighing "<<cnt<<" cameras"<<endl;
+		displayPointCloud();
+		for(int i=1; i<tokens.size(); i++){
+			int imgIdx = tokens[i].toInt();
+			int camIdx;
+			coreInterface->getCameraIdx(imgIdx,camIdx);
+			if(camIdx>=0){
+				vector<Point3f> xyzs;
+				vector<int>		highlightIdxs;
+				coreInterface->getAll3DfromImage2D(imgIdx,xyzs,highlightIdxs);
+				QList<int> idxs;
+				for(int i=0; i<highlightIdxs.size(); i++){
+					idxs.push_back(highlightIdxs[i]);
+				}
+				cloudViewer->highlightPointIdx(idxs, camIdx);
+			}
+		}
+	}
+	/*
+	std::vector<double> vals;
+	for(int i=0; i<tokens.size(); i++){
+		vals.push_back(tokens.at(i).toDouble());
+	}
+	for(vector<double>::iterator it=vals.begin(); it!=vals.end(); ++it){
+		cout<<(*it)<<" ";
+	}
+	cout<<endl;
+	coreInterface->ApplyGlobalTransformationToMap(vals);
+	*/
+
+}
 void MainWindow::displayPointCloud(){
 	statusBar()->showMessage(tr("loading cloud..."));
 	vector<Point3f> xyzs;
@@ -252,22 +339,33 @@ void MainWindow::displayPointCloud(){
 
 }
 
-void MainWindow::highlightPoints(const int imgIdx){
+void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	displayPointCloud();	//to reset previous highlights just reload the point cloud
 
-	int camIdx;
-	coreInterface->getCameraIdx(imgIdx,camIdx);
-	if(camIdx<0) return;
-
-
-	vector<Point3f> xyzs;
-	vector<int>		highlightIdxs;
-	coreInterface->getAll3DfromImage2D(imgIdx,xyzs,highlightIdxs);
-	QList<int> idxs;
-	for(int i=0; i<highlightIdxs.size(); i++){
-		idxs.push_back(highlightIdxs[i]);
+	int camIdx1, camIdx2;
+	coreInterface->getCameraIdx(imgIdx1,camIdx1);
+	coreInterface->getCameraIdx(imgIdx2,camIdx2);
+	if(camIdx1>=0){
+		vector<Point3f> xyzs;
+		vector<int>		highlightIdxs;
+		coreInterface->getAll3DfromImage2D(imgIdx1,xyzs,highlightIdxs);
+		QList<int> idxs;
+		for(int i=0; i<highlightIdxs.size(); i++){
+			idxs.push_back(highlightIdxs[i]);
+		}
+		cloudViewer->highlightPointIdx(idxs, camIdx1);
 	}
-	cloudViewer->highlightPointIdx(idxs, camIdx);
+	if(camIdx2>=0){
+		vector<Point3f> xyzs;
+		vector<int>		highlightIdxs;
+		coreInterface->getAll3DfromImage2D(imgIdx2,xyzs,highlightIdxs);
+		QList<int> idxs;
+		for(int i=0; i<highlightIdxs.size(); i++){
+			idxs.push_back(highlightIdxs[i]);
+		}
+		cloudViewer->highlightPointIdx(idxs, camIdx2);
+	}
+
 }
 void MainWindow::openFile()
 {

@@ -12,7 +12,7 @@
 
 #include <vector>
 #include <string>
-
+#include <map>
 #include <opencv2/core/core.hpp>
 
 class SFMPipeline;
@@ -102,7 +102,10 @@ public:
 	void removeBad();
 	void denseReconstruct();
 	void computeKeyFrame(const int imgIdx, KeyFrame &kf);
-
+	void getOverlappingImgs(	const int 								baseImgIdx,
+								std::map<int,std::vector<int> > 		&img2pt3Didxs);
+	void getBestOverlappingImgs(const int 								baseImgIdx,
+								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 private:
 	SFMPipeline 				*core;
 	TaskThread 					*tt;

@@ -56,10 +56,6 @@ protected:
 	virtual void mouseMoveEvent(QMouseEvent *event);
 	void keyPressEvent(QKeyEvent *event);
 	virtual void  distToNearestMark(const QPointF &pos, float &minDist, int &minIdx);
-	int GetRandomNumber(const int Min, const int Max)
-	{
-	    return ((qrand() % ((Max + 1) - Min)) + Min);
-	}
 	
 private:
 	QImage image;

@@ -41,13 +41,20 @@ void MatchPanelModel::setMatches(const QList<QPointF> &pts1, const QList<QPointF
 	}
 */
 
-	matchChanged(img1Points, img2Points, mask);
+	emit matchChanged(img1Points, img2Points, mask);
 
 }
 
 void MatchPanelModel::deleteMatch(const int idx){
 	assert(idx>=0 && idx<mask.size());
 	mask[idx] = false;
-	matchChanged(img1Points, img2Points, mask);
+	emit matchChanged(img1Points, img2Points, mask);
+}
+
+void MatchPanelModel::setImages(const int imgIdx1, const int imgIdx2){
+	img1Points.clear();
+	img2Points.clear();
+	mask.clear();
+	emit matchChanged(img1Points, img2Points, mask);
 }
 

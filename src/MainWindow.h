@@ -19,6 +19,7 @@ class MatchPanel;
 //class KeyFramePanel;
 //class KeyFrameModel;
 class QString;
+class QLineEdit;
 
 class MainWindow: public QMainWindow
 {
@@ -41,7 +42,8 @@ private slots:
 	void handleRemoveBad();
 	void handleDense();
 	void displayPointCloud();
-	void highlightPoints(const int imgIdx);
+	void highlightPoints(const int imgIdx1, const int imgIdx2);
+	void handleLineCommand();
 
 private:
     void createWidgets();
@@ -63,7 +65,6 @@ private:
 	QAction 				*saveAction;
 	QAction 				*denseAction;
 	//QAction					*keyframeAction;
-	QAction					*tmp;
 	
 	QToolBar 				*fileToolBar;
     QToolBar 				*sfmToolBar;
@@ -73,6 +74,7 @@ private:
 	CoreInterfaceWidget 	*coreInterface;
 	MatchPanel 				*matchPanel;
 	MatchPanelModel 		*matchPanelModel;
+	QLineEdit				*commandBox;
 	//KeyFramePanel			*keyframePanel;
 	//KeyFrameModel			*keyframeModel;
 

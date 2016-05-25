@@ -438,7 +438,16 @@ void CoreInterfaceWidget::getCameraIdx(			const int 					imgIdx,
 		camIdx = -1;
 	}
 }
-
+void CoreInterfaceWidget::getOverlappingImgs(	const int 					baseImgIdx,
+												map<int,vector<int> > 		&img2pt3Didxs)
+{
+	core->ptCloud.getOverlappingImgs(baseImgIdx, img2pt3Didxs);
+}
+void CoreInterfaceWidget::getBestOverlappingImgs(const int 					baseImgIdx,
+												map<int,vector<int> > 		&img2pt3Didxs)
+{
+	core->ptCloud.getBestOverlappingImgs(baseImgIdx, img2pt3Didxs);
+}
 void CoreInterfaceWidget::saveCloud(){
 	if(!coreIsSet()){
 		QMessageBox messageBox;

@@ -20,6 +20,7 @@ signals:
 public slots:
 	void setMatches(const QList<QPointF> &, const QList<QPointF> &);
 	void deleteMatch(const int);
+	void setImages(const int, const int);
 
 public:
 	MatchPanelModel();

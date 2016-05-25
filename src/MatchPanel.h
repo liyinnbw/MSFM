@@ -20,6 +20,7 @@ signals:
 	void updateImageView2(const QList<QPointF> &);
 	void updateMatchView(const QList<QPointF> &, const QList<QPointF> &);
 	void firstImageSelected(const int imgIdx);
+	void imageChanged(const int imgIdx1, const int imgIdx2);
 
 public slots:
 	void handleFirstImageSelected(int idx);

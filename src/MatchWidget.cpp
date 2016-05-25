@@ -9,6 +9,7 @@
 #include <assert.h>
 
 #include "MatchWidget.h"
+#include "core/Utils.h"
 
 using namespace std;
 // Constructor
@@ -35,7 +36,7 @@ void MatchWidget::drawMarks(){
 	painter.setRenderHint(QPainter::Antialiasing);
 	for(int i=0; i<marks1.size(); i++){
 		if(isVisible(i)){
-			QColor c(GetRandomNumber(0,255), GetRandomNumber(0,255), GetRandomNumber(0,255));
+			QColor c(Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255));
 			QPen pen(c, 1, Qt::SolidLine);
 			painter.setPen(pen);
 			QPointF mark1 = marks1[i];

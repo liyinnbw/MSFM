@@ -37,6 +37,7 @@
 
 
 #include "core/PlyIO.h"
+#include "core/Utils.h"
 #include "CloudWidget.h"
 
 using namespace std;
@@ -243,7 +244,7 @@ void CloudWidget::deletePoints(const QList<int> idxs){
 }
 void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	if(pointsData == NULL) return;
-	cout<<idxs.size()<<" points to highlight"<<endl;
+	cout<<idxs.size()<<" points seen by camera "<<camIdx<<endl;
 	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
 	vtkIdType numOfPoints;
 	vtkIdType *pointIDs;
@@ -260,11 +261,11 @@ void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	for(int i=0; i<idxs.size(); i++){
 		highlightPid[i] = idxs[i];
 	}
-	vertices->InsertNextCell(idxs.size(),highlightPid);
+	vtkIdType newVertsCellId = vertices->InsertNextCell(idxs.size(),highlightPid);
 
 	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkUnsignedCharArray::SafeDownCast(pointsData->GetCellData()->GetScalars("Colors"));
-	//cout<<"total scalar tuples before = "<<colors->GetNumberOfTuples()<<endl;
-	unsigned char highlightColor[3] = {255, 0, 255};	//purple
+
+	unsigned char highlightColor[3] = {Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255)};	//random color
 
 	//just to add a new tuple, value doesnt matter
 	#if VTK_MAJOR_VERSION < 7
@@ -274,22 +275,21 @@ void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	#endif
 
 	//shift tuples with idx>= 1 to the right by 1
-	for(int i=colors->GetNumberOfTuples()-1; i>1; i--){
+	for(int i=colors->GetNumberOfTuples()-1; i>newVertsCellId; i--){
 		colors->InsertTuple(i,colors->GetTuple(i-1));
 	}
 
 	//add the new tuple to idx 1
 	#if VTK_MAJOR_VERSION < 7
-		colors->InsertTupleValue(1, highlightColor);
+		colors->InsertTupleValue(newVertsCellId, highlightColor);
 	#else
-		colors->InsertTypedTuple(1, highlightColor);
+		colors->InsertTypedTuple(newVertsCellId, highlightColor);
 	#endif
 
-	//cout<<"total scalar tuples after = "<<colors->GetNumberOfTuples()<<endl;
 
 	vtkSmartPointer<vtkCellArray> edges = pointsData->GetLines();
-	cout<<"edges before = "<<edges->GetNumberOfCells()<<endl;
-	cout<<"total scalar tuples before = "<<colors->GetNumberOfTuples()<<endl;
+	int edgeCntBefore 	= edges->GetNumberOfCells();
+	int colorCntBefore 	= colors->GetNumberOfTuples();
 	vtkIdType camCenterPtId = numOfPoints+camIdx*4;
 	for(int i=0; i<idxs.size(); i++){
 		vtkSmartPointer<vtkLine> edge = vtkSmartPointer<vtkLine>::New();
@@ -302,8 +302,10 @@ void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 		colors->InsertNextTypedTuple(highlightColor);
 	#endif
 	}
-	cout<<"edges after = "<<edges->GetNumberOfCells()<<endl;
-	cout<<"total scalar tuples after = "<<colors->GetNumberOfTuples()<<endl;
+	int edgeCntAfter 	= edges->GetNumberOfCells();
+	int colorCntAfter 	= colors->GetNumberOfTuples();
+	assert(edgeCntBefore+idxs.size() == edgeCntAfter);
+	assert(colorCntBefore+idxs.size() == colorCntAfter);
 	pointsData->Modified(); //to trigger an UI update
 }
 void CloudWidget::disableInteraction(){
@@ -469,7 +471,6 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
   //style->SetPoints(pointsData);
 
   renderer->ResetCamera();	//move camera to cloud center
-
   enableInteraction();
 }
 /*

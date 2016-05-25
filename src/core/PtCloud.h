@@ -103,6 +103,11 @@ public:
 
 	void removeHighError3D(		const float 				thresh);
 
+	void getOverlappingImgs(	const int 								baseImgIdx,
+								std::map<int,std::vector<int> > 		&img2pt3Didxs);
+	void getBestOverlappingImgs(const int 								baseImgIdx,
+								std::map<int,std::vector<int> > 		&img2pt3Didxs);
+
 	//data
 	std::string 						imgRoot;
 	std::vector<std::string> 			imgs;		//all input image paths, including non-used ones

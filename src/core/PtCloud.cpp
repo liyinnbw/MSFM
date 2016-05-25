@@ -442,3 +442,59 @@ void PtCloud::removeHighError3D(	const float thresh){
 	}
 	remove3Ds(removeMask);
 }
+
+//return list of cameras seeing overlapping points as the given camera, and the idxs of 3d points they seen
+void PtCloud::getOverlappingImgs(	const int 					baseImgIdx,
+									map<int,vector<int> > 		&img2pt3Didxs)
+{
+
+	if(!imageIsUsed(baseImgIdx)) return;
+	img2pt3Didxs.clear();
+	vector<Point3f>	xyz;
+	vector<int>		pts3DIdxs;
+	getAll3DfromImage2D(baseImgIdx,xyz,pts3DIdxs);
+	img2pt3Didxs[baseImgIdx] = pts3DIdxs;
+	for(int i=0; i<pts3DIdxs.size(); i++){
+		const map<int, int> &img2ptIdx = pt3Ds[pts3DIdxs[i]].img2ptIdx;
+		for(map<int, int>::const_iterator it = img2ptIdx.begin(); it!= img2ptIdx.end(); ++it){
+			int imgIdx = it->first;
+			int pt3Didx= pts3DIdxs[i];
+			if(imgIdx == baseImgIdx) continue;
+			if(img2pt3Didxs.find(imgIdx) == img2pt3Didxs.end()){
+				img2pt3Didxs[imgIdx] = vector<int>();
+
+			}
+			img2pt3Didxs[imgIdx].push_back(pt3Didx);
+		}
+	}
+
+}
+
+//return 2 overlapping cameras, one is the given camera the other is the best overlapping camera with sufficiently wide baseline, and also the 3d point idxs they see
+void PtCloud::getBestOverlappingImgs(	const int 					baseImgIdx,
+										map<int,vector<int> > 		&img2pt3Didxs)
+{
+
+	if(!imageIsUsed(baseImgIdx)) return;
+	img2pt3Didxs.clear();
+	map<int,vector<int> > 		allOverlaps;
+	getOverlappingImgs(baseImgIdx, allOverlaps);
+	img2pt3Didxs[baseImgIdx] = allOverlaps[baseImgIdx];
+	cout<<"choosing best overlap from "<<allOverlaps.size()-1<<" candidates"<<endl;
+	int maxOverLaps = -1;
+	int bestOverlapImgIdx = -1;
+	for(map<int,vector<int> >::iterator it = allOverlaps.begin(); it!= allOverlaps.end(); ++it){
+		int imgIdx = it->first;
+		int overlap = it->second.size(); //XXX: WARNING, if do not assign int to it->second.size(), it will be unsigned. when compare unsigned to int, int will be converted to unsigned. when signed -1 converted to unsigned, it is gigantic. so never compare unsigned .size() with int -1.
+		if(imgIdx == baseImgIdx) continue;
+		if(overlap > maxOverLaps){
+			maxOverLaps = overlap;
+			bestOverlapImgIdx = imgIdx;
+		}
+	}
+	cout<<"bestOverlapImgIdx "<<bestOverlapImgIdx<<endl;
+	if(bestOverlapImgIdx>=0){
+		img2pt3Didxs[bestOverlapImgIdx] = allOverlaps[bestOverlapImgIdx];
+	}
+
+}

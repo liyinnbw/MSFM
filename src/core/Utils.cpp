@@ -12,7 +12,7 @@ using namespace std;
 using namespace cv;
 Utils::Utils() {
 	// TODO Auto-generated constructor stub
-
+	srand (time(NULL));
 }
 
 Utils::~Utils() {
@@ -74,3 +74,6 @@ void Utils::getTimeStampAsString(std::string &tstmp){
 	tstmp = str;
 }
 
+int Utils::getRandomInt(const int Min, const int Max){
+	return ((rand() % ((Max + 1) - Min)) + Min);
+}

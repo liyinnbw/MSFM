@@ -7,6 +7,7 @@
 #include <QtGlobal>
 
 #include "ImageWidget.h"
+#include "core/Utils.h"
 #include <QDebug>
 #include <iostream>
 #include <assert.h>
@@ -100,7 +101,7 @@ void ImageWidget::drawMarks(){
 	painter.setRenderHint(QPainter::Antialiasing);
 	for(int i=0; i<marks.size(); i++){
 		if(mask[i]){
-			QColor c(GetRandomNumber(0,255), GetRandomNumber(0,255), GetRandomNumber(0,255));
+			QColor c(Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255));
 			QPen pen(c, 2, Qt::SolidLine);
 			painter.setPen(pen);
 			QPointF mark = marks[i];

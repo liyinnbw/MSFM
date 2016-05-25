@@ -62,10 +62,12 @@ void MatchPanel::createWidgets(){
 	this->setLayout(vLayout);
 }
 void MatchPanel::connectWidgets(){
-	connect(imgList1, SIGNAL(currentIndexChanged(int)), imgList1, SIGNAL(activated(int))); //side effect, forces handleFirstImageSelected to be called again
-	connect(imgList2, SIGNAL(currentIndexChanged(int)), imgList2, SIGNAL(activated(int))); //side effect, forces handleSecondImageSelected to be called again
-	connect(imgList1, SIGNAL(activated(int)), this, SLOT(handleFirstImageSelected(int)));
-	connect(imgList2, SIGNAL(activated(int)), this, SLOT(handleSecondImageSelected(int)));
+	connect(imgList1, SIGNAL(currentIndexChanged(int)), this, SLOT(handleFirstImageSelected(int)));
+	connect(imgList2, SIGNAL(currentIndexChanged(int)), this, SLOT(handleSecondImageSelected(int)));
+	//connect(imgList1, SIGNAL(currentIndexChanged(int)), imgList1, SIGNAL(activated(int))); //side effect, forces handleFirstImageSelected to be called again
+	//connect(imgList2, SIGNAL(currentIndexChanged(int)), imgList2, SIGNAL(activated(int))); //side effect, forces handleSecondImageSelected to be called again
+	//connect(imgList1, SIGNAL(activated(int)), this, SLOT(handleFirstImageSelected(int)));
+	//connect(imgList2, SIGNAL(activated(int)), this, SLOT(handleSecondImageSelected(int)));
 	connect(imageView1, SIGNAL(markSelected(const int)), this, SLOT(updateSelected(const int)));
 	connect(imageView2, SIGNAL(markSelected(const int)), this, SLOT(updateSelected(const int)));
 	connect(matchView, SIGNAL(markSelected(const int)), this, SLOT(updateSelected(const int)));
@@ -91,7 +93,8 @@ void MatchPanel::handleFirstImageSelected(int idx){
 	if(imgList1->currentIndex()>0){
 		cout<<"1st image:["<<idx-1<<"]"<<imgList1->itemText(idx).toStdString()<<endl;
 		imageView1->setImage(imgRoot+"/"+imgList1->itemText(idx));
-		emit firstImageSelected(idx-1);
+		//emit firstImageSelected(idx-1);
+		emit imageChanged(idx-1,imgList2->currentIndex()-1);
 	}
 
 }
@@ -99,6 +102,7 @@ void MatchPanel::handleSecondImageSelected(int idx){
 	if(imgList2->currentIndex()>0){
 		cout<<"2nd image:["<<idx-1<<"]"<<imgList2->itemText(idx).toStdString()<<endl;
 		imageView2->setImage(imgRoot+"/"+imgList2->itemText(idx));
+		emit imageChanged(imgList1->currentIndex()-1,idx-1);
 	}
 }
 void MatchPanel::updateViews(const QList<QPointF> &pts1, const QList<QPointF> &pts2, const QList<bool> &mask){

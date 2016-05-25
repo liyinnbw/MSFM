@@ -38,6 +38,8 @@ public:
 
 	static void getTimeStampAsString(std::string &tstmp);
 
+	static int getRandomInt(const int Min, const int Max);
+
 
 };
 
