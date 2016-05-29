@@ -163,7 +163,7 @@ void MainWindow::createToolBars()
 void MainWindow::connectWidgets(){
 	connect(commandBox, SIGNAL(returnPressed()), this, SLOT(handleLineCommand()));
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
-	connect(coreInterface, SIGNAL(pointCloudReady()), this, SLOT(displayPointCloud()));
+	connect(coreInterface, SIGNAL(pointCloudReady(bool)), this, SLOT(displayPointCloud(bool)));
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
@@ -250,7 +250,7 @@ void MainWindow::handleLineCommand(){
 		int camIdx;
 		coreInterface->getCameraIdx(baseImgIdx,camIdx);
 		if(camIdx>=0){
-			displayPointCloud();
+			displayPointCloud(false);
 			map<int,vector<int> > img2pt3Didxs;
 			coreInterface->getOverlappingImgs(baseImgIdx,img2pt3Didxs);
 			for(map<int,vector<int> >::iterator it=img2pt3Didxs.begin(); it!=img2pt3Didxs.end(); ++it){
@@ -273,7 +273,7 @@ void MainWindow::handleLineCommand(){
 		int camIdx;
 		coreInterface->getCameraIdx(baseImgIdx,camIdx);
 		if(camIdx>=0){
-			displayPointCloud();
+			displayPointCloud(false);
 			map<int,vector<int> > img2pt3Didxs;
 			coreInterface->getBestOverlappingImgs(baseImgIdx,img2pt3Didxs);
 			for(map<int,vector<int> >::iterator it=img2pt3Didxs.begin(); it!=img2pt3Didxs.end(); ++it){
@@ -292,7 +292,7 @@ void MainWindow::handleLineCommand(){
 	}else if(tokens[0].toLower().compare("highlight")==0){
 		int cnt = tokens.size() - 1;
 		cout<<"command highlighing "<<cnt<<" cameras"<<endl;
-		displayPointCloud();
+		displayPointCloud(false);
 		for(int i=1; i<tokens.size(); i++){
 			int imgIdx = tokens[i].toInt();
 			int camIdx;
@@ -322,14 +322,14 @@ void MainWindow::handleLineCommand(){
 	*/
 
 }
-void MainWindow::displayPointCloud(){
+void MainWindow::displayPointCloud(bool resetView){
 	statusBar()->showMessage(tr("loading cloud..."));
 	vector<Point3f> xyzs;
 	coreInterface->getPointCloud(xyzs);
 	vector<Matx34d> cams;
 	coreInterface->getCameras(cams);
 	//cloudViewer->loadCloud(xyzs);
-	cloudViewer->loadCloudAndCamera(xyzs,cams);
+	cloudViewer->loadCloudAndCamera(xyzs,cams, resetView);
 	statusBar()->showMessage(tr("cloud loaded"));
 	
 	//also update imgList2 to include only used images
@@ -340,7 +340,7 @@ void MainWindow::displayPointCloud(){
 }
 
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
-	displayPointCloud();	//to reset previous highlights just reload the point cloud
+	displayPointCloud(false);	//to reset previous highlights just reload the point cloud
 
 	int camIdx1, camIdx2;
 	coreInterface->getCameraIdx(imgIdx1,camIdx1);

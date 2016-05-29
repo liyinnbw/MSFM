@@ -41,7 +41,7 @@ private slots:
 	void handleCheckMatch();
 	void handleRemoveBad();
 	void handleDense();
-	void displayPointCloud();
+	void displayPointCloud(bool resetView);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
 

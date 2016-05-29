@@ -319,11 +319,11 @@ void CloudWidget::loadCloud( QString fileName ){
 	vector<Point3f> xyzs;
 	string fname = fileName.toStdString();
 	PlyIO::readPLY(fname, xyzs);
-	loadCloudAndCamera(xyzs, vector<Matx34d>());
+	loadCloudAndCamera(xyzs, vector<Matx34d>(), true);
 	enableInteraction();
 
 }
-void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Matx34d> &cameras){
+void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Matx34d> &cameras, bool resetView){
 	disableInteraction();
 
 	//constants
@@ -470,7 +470,9 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
   style->SetPoints(input); //note input != pointsdata
   //style->SetPoints(pointsData);
 
-  renderer->ResetCamera();	//move camera to cloud center
+  if(resetView){
+	  renderer->ResetCamera();	//move camera to cloud center
+  }
   enableInteraction();
 }
 /*

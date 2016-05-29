@@ -42,7 +42,7 @@ public:
 	CloudWidget(QWidget *parent = 0);
 	void deletePoints(const QList<int> idxs);
 	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
-	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams);
+	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams, bool resetView);
 	const static int 			POINT_SIZE = 3;
 	const static int 			LINE_WIDTH = 2;
 	int 						numCloudPoints;

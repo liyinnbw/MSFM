@@ -66,7 +66,7 @@ class CoreInterfaceWidget: public QWidget
 
 signals:
 	void projectLoaded();
-	void pointCloudReady();
+	void pointCloudReady(bool resetView);
 	void matchResultReady(const QList<QPointF> &, const QList<QPointF> &);
 	void KeyFrameReady(const QList<QPointF> &);
 	void nextPairReady(const int, const int);

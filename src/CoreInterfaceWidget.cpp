@@ -200,7 +200,7 @@ void CoreInterfaceWidget::reconstruct(const QList<bool> &mask){
 }
 void CoreInterfaceWidget::handleReconstructFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleReconstructFinished()));
-	emit pointCloudReady();
+	emit pointCloudReady(true);
 }
 void CoreInterfaceWidget::bundleAdjust(){
 	if(!coreIsSet()){
@@ -221,7 +221,7 @@ void CoreInterfaceWidget::bundleAdjust(){
 }
 void CoreInterfaceWidget::handleBundleAdjustFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleBundleAdjustFinished()));
-	emit pointCloudReady();
+	emit pointCloudReady(true);
 }
 void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
 	if(!coreIsSet()){
@@ -243,7 +243,7 @@ void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
 }
 void CoreInterfaceWidget::handleDeletePointIdxFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleDeletePointIdxFinished()));
-	emit pointCloudReady();
+	emit pointCloudReady(true);
 }
 void CoreInterfaceWidget::matchImages(	const int &_imgIdx1,
 										const int &_imgIdx2){
@@ -332,7 +332,7 @@ void CoreInterfaceWidget::removeBad(){
 		return;
 	}
 	core->pruneHighReprojectionErrorPoints();
-	emit pointCloudReady();
+	emit pointCloudReady(true);
 }
 void CoreInterfaceWidget::denseReconstruct(){
 	if(!coreIsSet()){
@@ -475,7 +475,7 @@ void CoreInterfaceWidget::loadProject(const QString &pname){
 	core ->loadProject(pname.toStdString());
 	emit projectLoaded();
 	if(core->ptCloud.pt3Ds.size()>0){
-		emit pointCloudReady();
+		emit pointCloudReady(true);
 	}
 }
 

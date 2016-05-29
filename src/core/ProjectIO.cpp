@@ -9,7 +9,7 @@
 #include <fstream>
 
 #include <opencv2/core/core.hpp>
-
+#include <opencv2/highgui/highgui.hpp>
 #include "ProjectIO.h"
 #include "PtCloud.h"
 #include "Utils.h"
@@ -223,6 +223,8 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		const int LINE_IMGCNT		= 3;
 		int LINE_PTCNT				= 10000000;
 		int currLine				= 0;
+		int imgW_Half				= -1;
+		int imgH_Half				= -1;
 
 		ifstream infile(fname.c_str());
 		string line;
@@ -271,7 +273,12 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 						iss2>>imgName>>f>>qw>>qx>>qy>>qz>>t0>>t1>>t2>>r;
 						//cout<<imgName<<" "<<f<<" "<<qw<<" "<<qx<<" "<<qy<<" "<<qz<<" "<<t0<<" "<<t1<<" "<<t2<<" "<<r<<endl;
-
+						if(imgW_Half <0){
+							Mat tmp = imread(ptCloud.imgRoot+"/"+imgName,IMREAD_COLOR);
+							imgW_Half 	= tmp.cols/2;
+							imgH_Half	= tmp.rows/2;
+							cout<<"img size = "<<imgW_Half*2<<"x"<<imgH_Half*2<<endl;
+						}
 						Matx33d R_matx(	1-2*qy*qy-2*qz*qz, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw,
 										2*qx*qy + 2*qz*qw, 1-2*qx*qx-2*qz*qz, 2*qy*qz - 2*qx*qw,
 										2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1-2*qx*qx-2*qy*qy);
@@ -317,6 +324,10 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 								int imgIdx, pt2DIdx;	//pt2DIdx is useless, we will create our own idx
 								double x_2d, y_2d;
 								iss2>>imgIdx>>pt2DIdx>>x_2d>>y_2d;
+								//XXX: NVM file 2d coordinates are relative to image center (not principle point) rather than top-left!
+								//convert coordinates to top-left
+								x_2d+=imgW_Half;
+								y_2d+=imgH_Half;
 								Pt2D pt2D;
 								pt2D.pt = Point2f(x_2d, y_2d);
 								pt2D.img_idx = imgIdx;
