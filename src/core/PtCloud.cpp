@@ -25,6 +25,7 @@ void PtCloud::clear(){
 	img2pt2Ds.clear();
 	img2camMat.clear();
 	camMats.clear();
+	img2GPS.clear();
 }
 bool PtCloud::imageIsUsed(	const int			imgIdx){
 	return (img2camMat.find(imgIdx) != img2camMat.end());
@@ -243,7 +244,7 @@ void PtCloud::getAll3DfromImage2D(	const int 			imgIdx,
 	}
 }
 
-void PtCloud::getXYZs( 			vector<Point3f>		&xyzs){
+void PtCloud::getXYZs( 			vector<Point3f>		&xyzs) const{
 	xyzs.clear();
 	xyzs.reserve(pt3Ds.size());
 	for(int i=0; i<pt3Ds.size(); i++){
@@ -305,9 +306,31 @@ void PtCloud::get2DsHave3D(		vector<Point2f> 	&xys,
 	}
 }
 
+void PtCloud::getImageMeasurements(	const int					&imgIdx,
+									std::vector<cv::Point2f>	&xys,
+									std::vector<int>			&pt3DIdxs) const
+{
+	xys.clear();
+	pt3DIdxs.clear();
+	//return if image is not used
+	if(img2camMat.find(imgIdx)==img2camMat.end()) return;
+	std::map<int, std::vector<Pt2D> >::const_iterator it = img2pt2Ds.find(imgIdx);
+	assert(it!=img2pt2Ds.end());
+
+	const vector<Pt2D> &pt2Ds = it->second;
+	xys.reserve(pt2Ds.size());
+	pt3DIdxs.reserve(pt2Ds.size());
+	for(int i=0; i<pt2Ds.size(); i++){
+		if(pt2Ds[i].pt3D_idx!=-1){
+			xys.push_back(pt2Ds[i].pt);
+			pt3DIdxs.push_back(pt2Ds[i].pt3D_idx);
+		}
+	}
+}
+
 void PtCloud::getCamRvecAndT(	const int					camIdx,
 								cv::Mat						&rvec,
-								cv::Mat 					&t)
+								cv::Mat 					&t) const
 {
 	Mat R(3,3,CV_64F);
 	Mat T(1,3,CV_64F);
@@ -497,4 +520,66 @@ void PtCloud::getBestOverlappingImgs(	const int 					baseImgIdx,
 		img2pt3Didxs[bestOverlapImgIdx] = allOverlaps[bestOverlapImgIdx];
 	}
 
+}
+
+
+void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
+	vector<Point3f>	xyzs;
+	getXYZs(xyzs);
+	Mat pts4DMat; //4 channels type 29
+	convertPointsToHomogeneous(xyzs, pts4DMat);
+	pts4DMat = pts4DMat.reshape(1);		//convert to 1 channel, type 5, efficiency O(1)
+	pts4DMat = pts4DMat.t();
+	Mat tmpMat;
+	transfMat.convertTo(tmpMat,pts4DMat.type());
+	pts4DMat = tmpMat*pts4DMat;			//transform 3D points, results in 3*N mat
+	pts4DMat = pts4DMat.t();
+	pts4DMat = pts4DMat.reshape(3);		//convert to 3 channels so that you can copy to vector of points
+	pts4DMat.copyTo(xyzs);
+	cout<<"xyzs size = "<<xyzs.size()<<endl;
+	assert(xyzs.size() == pt3Ds.size());
+	for(int i=0; i<xyzs.size(); i++){
+		pt3Ds[i].pt = xyzs[i];
+	}
+	for(int i=0; i<camMats.size(); i++){
+		Matx44d homoCamMat(	camMats[i](0,0),camMats[i](0,1),camMats[i](0,2),camMats[i](0,3),
+							camMats[i](1,0),camMats[i](1,1),camMats[i](1,2),camMats[i](1,3),
+							camMats[i](2,0),camMats[i](2,1),camMats[i](2,2),camMats[i](2,3),
+							0,0,0,1);
+		Matx44d homoTransfMat(	transfMat.at<double>(0,0),transfMat.at<double>(0,1),transfMat.at<double>(0,2),transfMat.at<double>(0,3),
+								transfMat.at<double>(1,0),transfMat.at<double>(1,1),transfMat.at<double>(1,2),transfMat.at<double>(1,3),
+								transfMat.at<double>(2,0),transfMat.at<double>(2,1),transfMat.at<double>(2,2),transfMat.at<double>(2,3),
+								0,0,0,1);
+
+		Mat newRMat = (Mat(homoCamMat))*(Mat(homoTransfMat).inv());
+
+		Matx34d newCamMat(	newRMat.at<double>(0,0),newRMat.at<double>(0,1),newRMat.at<double>(0,2),newRMat.at<double>(0,3),
+							newRMat.at<double>(1,0),newRMat.at<double>(1,1),newRMat.at<double>(1,2),newRMat.at<double>(1,3),
+							newRMat.at<double>(2,0),newRMat.at<double>(2,1),newRMat.at<double>(2,2),newRMat.at<double>(2,3));
+
+		camMats[i] = newCamMat;
+	}
+}
+
+bool PtCloud::getImageIdxByCameraIdx(const int camIdx, int &imgIdx) const{
+	map<int,int>::const_iterator it = camMat2img.find(camIdx);
+	if(it == camMat2img.end()){
+		imgIdx = -1;
+		return false;
+	}else{
+		imgIdx = it->second;
+		return true;
+	}
+}
+bool PtCloud::getImageGPS(const int imgIdx, double &lat, double &lon) const{
+	map<int, pair<double, double> >::const_iterator it = img2GPS.find(imgIdx);
+	if(it == img2GPS.end()){
+		lat = -1;
+		lon = -1;
+		return false;
+	}else{
+		lat = it->second.first;
+		lon = it->second.second;
+		return true;
+	}
 }

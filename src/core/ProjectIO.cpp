@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -26,95 +27,255 @@ ProjectIO::~ProjectIO() {
 	// TODO Auto-generated destructor stub
 }
 
-void ProjectIO::writeProject(	const string			&root,
-								const string			&fname,
+void ProjectIO::writeProject(	const string			&fname,
 								const Mat				&camIntrinsicMat,
 								const Mat 				&camDistortionMat,
 								const int 				&lastAddedImgIdx,
 								const PtCloud 			&ptCloud)
 {
-	string filename;
-
-	//if empty file name, using timestamp
-	if(fname.compare("")==0){
-		string tstr;
-		Utils::getTimeStampAsString(tstr);
-		filename = root+"/"+tstr+".yaml";
-	}else{
-		filename = root+"/"+fname+".yaml";
-	}
+	string filename = fname;
 	cout<<filename<<endl;
+	//if .yaml
+	if(Utils::endsWith(fname,".yaml")){
+		FileStorage fs(filename, FileStorage::WRITE);
 
-	FileStorage fs(filename, FileStorage::WRITE);
+		fs<<"camIntrinsicMat"<<camIntrinsicMat;
+		fs<<"camDistortionMat"<<camDistortionMat;
+		fs<<"lastAddedImgIdx"<<lastAddedImgIdx;
+		fs<<"imgRoot"<<ptCloud.imgRoot;
+		fs<<"imgs"<<"[";
+		for(int i=0; i<ptCloud.imgs.size(); i++){
+			fs<<ptCloud.imgs[i];
+		}
+		fs<<"]";
+		cout<<ptCloud.imgs.size()<<" images written"<<endl;
 
-	fs<<"camIntrinsicMat"<<camIntrinsicMat;
-	fs<<"camDistortionMat"<<camDistortionMat;
-	fs<<"lastAddedImgIdx"<<lastAddedImgIdx;
-	fs<<"imgRoot"<<ptCloud.imgRoot;
-	fs<<"imgs"<<"[";
-	for(int i=0; i<ptCloud.imgs.size(); i++){
-		fs<<ptCloud.imgs[i];
+		//camera projection matrixs
+		fs<<"img2camMat"<<"[";
+		const map<int, int>& img2camMat = ptCloud.img2camMat;
+		for(map<int, int>::const_iterator it = img2camMat.begin(); it != img2camMat.end(); it++){
+			fs << "{";
+			fs << "imgIdx" << (*it).first;
+			const Matx34d& camProjMat = ptCloud.camMats[(*it).second];
+			fs << "camProjMat"<< Mat(camProjMat);
+			fs << "}";
+		}
+		fs<<"]";
+		cout<<ptCloud.camMats.size()<<" cameras written"<<endl;
+
+		//2d features
+		fs<<"img2pt2Ds"<<"[";
+		const map<int, vector<Pt2D> >& img2pt2Ds = ptCloud.img2pt2Ds;
+		for(map<int, vector<Pt2D> >::const_iterator it = img2pt2Ds.begin(); it!=img2pt2Ds.end(); it++){
+			const int imgIdx = (*it).first;
+			const vector<Pt2D> &pt2Ds = (*it).second;
+			fs<<"{";
+				fs<<"imgIdx"<<imgIdx;
+				fs<<"pt2Ds"<<"[";
+				for (int i=0; i<pt2Ds.size(); i++){
+					fs<<"{";
+					fs<<"pt"<<pt2Ds[i].pt;
+					fs<<"dec"<<pt2Ds[i].dec;
+					fs<<"}";
+				}
+				fs<<"]";
+			fs<<"}";
+		}
+		fs<<"]";
+		cout<<ptCloud.img2pt2Ds.size()<<" image feature sets written"<<endl;
+
+		//3d points
+		fs<<"pt3Ds"<<"[";
+		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
+			const Pt3D &pt3D = ptCloud.pt3Ds[i];
+			const map<int,int>& img2ptIdx = pt3D.img2ptIdx;
+			fs<<"{";
+				fs<<"pt"<<pt3D.pt;
+
+				fs<<"img2ptIdx"<<"[";
+				for(map<int,int>::const_iterator it = img2ptIdx.begin(); it != img2ptIdx.end(); it++ ){
+					fs <<"{";
+					fs <<"imgIdx"  << (*it).first;
+					fs <<"pt2dIdx" << (*it).second;
+					fs <<"}";
+				}
+				fs<<"]";
+
+			fs<<"}";
+		}
+		fs<<"]";
+		cout<<ptCloud.pt3Ds.size()<<" 3D points written"<<endl;
+
+		fs.release();
 	}
-	fs<<"]";
-	cout<<ptCloud.imgs.size()<<" images written"<<endl;
+	//if .ply
+	else if(Utils::endsWith(fname,".ply")){
+		const vector<Matx34d> &cameras = ptCloud.camMats;
+		vector<Point3f> pts;
+		ptCloud.getXYZs(pts);
+		vector<Vec3b> color(pts.size(),Vec3b(255,255,255));
 
-	//camera projection matrixs
-	fs<<"img2camMat"<<"[";
-	const map<int, int>& img2camMat = ptCloud.img2camMat;
-	for(map<int, int>::const_iterator it = img2camMat.begin(); it != img2camMat.end(); it++){
-		fs << "{";
-		fs << "imgIdx" << (*it).first;
-		const Matx34d& camProjMat = ptCloud.camMats[(*it).second];
-		fs << "camProjMat"<< Mat(camProjMat);
-		fs << "}";
+		ofstream myfile;
+		myfile.open (filename.c_str());
+
+		int numCameras = cameras.size();
+
+		//write point cloud to .ply file
+		myfile <<"ply"<<endl;
+		myfile <<"format ascii 1.0"<<endl;
+
+		//write descriptors
+		//vector<Mat> decs;
+		//ptCloud.getAverageDecs(decs);
+		//assert(decs.size() == pts.size());
+		//myfile <<"comment cloudSize: "<<decs.size()<<endl;
+		//for(int i=0; i<decs.size(); i++){
+		//	myfile <<"comment dec: "<<i<<" "<<decs[i]<<endl;
+		//}
+
+		myfile <<"element vertex "<<pts.size()+numCameras*4<<endl;
+		myfile <<"property float x"<<endl;
+		myfile <<"property float y"<<endl;
+		myfile <<"property float z"<<endl;
+		myfile <<"property uchar red"<<endl;
+		myfile <<"property uchar green"<<endl;
+		myfile <<"property uchar blue"<<endl;
+		myfile <<"element face 0"<<endl;
+		myfile <<"property list uchar int vertex_indices"<<endl;
+		myfile <<"element edge "<<numCameras*3<<endl;            // 3 axis
+		myfile <<"property int vertex1"<<endl;
+		myfile <<"property int vertex2"<<endl;
+		myfile <<"property uchar red"<<endl;
+		myfile <<"property uchar green"<<endl;
+		myfile <<"property uchar blue"<<endl;
+		myfile <<"end_header"<<endl;
+
+		for (int n=0 ; n<pts.size() ; n++)
+		{
+				float x=pts[n].x;
+				float y= pts[n].y;
+				float z=pts[n].z;
+				int r=color[n][0];
+				int g=color[n][1];
+				int b=color[n][2];
+				myfile <<x<<" "<<y<<" "<<z<<" "<<b<<" "<<g<<" "<<r<<endl;
+		}
+		for (int n=0 ; n<numCameras ; n++)
+		{
+			double TRx = cameras[n](0,3);
+			double TRy = cameras[n](1,3);
+			double TRz = cameras[n](2,3);
+
+			double Ix0  = cameras[n](0,0);
+			double Iy0  = cameras[n](0,1);
+			double Iz0  = cameras[n](0,2);
+
+			double Jx0  = cameras[n](1,0);
+			double Jy0  = cameras[n](1,1);
+			double Jz0  = cameras[n](1,2);
+
+			double Kx0  = cameras[n](2,0);
+			double Ky0  = cameras[n](2,1);
+			double Kz0  = cameras[n](2,2);
+
+			double Tx  = -TRx*Ix0 -TRy*Jx0 -TRz*Kx0;
+			double Ty  = -TRx*Iy0 -TRy*Jy0 -TRz*Ky0;
+			double Tz  = -TRx*Iz0 -TRy*Jz0 -TRz*Kz0;
+
+			double Ix  = Tx + cameras[n](0,0);
+			double Iy  = Ty + cameras[n](0,1);
+			double Iz  = Tz + cameras[n](0,2);
+
+			double Jx  = Tx + cameras[n](1,0);
+			double Jy  = Ty + cameras[n](1,1);
+			double Jz  = Tz + cameras[n](1,2);
+
+			double Kx  = Tx + cameras[n](2,0);
+			double Ky  = Ty + cameras[n](2,1);
+			double Kz  = Tz + cameras[n](2,2);
+
+			myfile <<Tx<<" "<<Ty<<" "<<Tz<<" "<<255<<" "<<255<<" "<<255<<endl;
+			myfile <<Ix<<" "<<Iy<<" "<<Iz<<" "<<255<<" "<<0<<" "<<0<<endl;
+			myfile <<Jx<<" "<<Jy<<" "<<Jz<<" "<<0<<" "<<255<<" "<<0<<endl;
+			myfile <<Kx<<" "<<Ky<<" "<<Kz<<" "<<0<<" "<<0<<" "<<255<<endl;
+
+		}
+
+		// draw the axis
+		int  offset = (int)pts.size();
+		for (int n=0 ; n<numCameras ; n++)
+		{
+			myfile << n*4+offset << " " << n*4+1+offset << " " << 255 << " "<< 0   << " " << 0   << endl;
+			myfile << n*4+offset << " " << n*4+2+offset << " " << 0   << " "<< 255 << " " << 0   << endl;
+			myfile << n*4+offset << " " << n*4+3+offset << " " << 0   << " "<< 0   << " " << 255 << endl;
+
+		}
+
+		myfile.close();
+
 	}
-	fs<<"]";
-	cout<<ptCloud.camMats.size()<<" cameras written"<<endl;
+	//if .tiny
+	else if(Utils::endsWith(fname,".tiny")){
+		ofstream myfile;
+		myfile.open (filename.c_str());
 
-	//2d features
-	fs<<"img2pt2Ds"<<"[";
-	const map<int, vector<Pt2D> >& img2pt2Ds = ptCloud.img2pt2Ds;
-	for(map<int, vector<Pt2D> >::const_iterator it = img2pt2Ds.begin(); it!=img2pt2Ds.end(); it++){
-		const int imgIdx = (*it).first;
-		const vector<Pt2D> &pt2Ds = (*it).second;
-		fs<<"{";
-			fs<<"imgIdx"<<imgIdx;
-			fs<<"pt2Ds"<<"[";
-			for (int i=0; i<pt2Ds.size(); i++){
-				fs<<"{";
-				fs<<"pt"<<pt2Ds[i].pt;
-				fs<<"dec"<<pt2Ds[i].dec;
-				fs<<"}";
+		//save calibration
+		//XXX: assumed principle is the image center, assumed same x,y focal
+		//TODO: change the small distortion to zero
+		double f = camIntrinsicMat.at<double>(0,0);
+		double fx= f/(camIntrinsicMat.at<double>(0,2)*2);
+		double fy= f/(camIntrinsicMat.at<double>(1,2)*2);
+		myfile<<"CamParam: "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
+
+		//save camera
+		myfile<<"Cams_start"<<endl;
+		const map<int, int>& camMat2img 		= ptCloud.camMat2img;
+		const map<int, pair<double, double> > &img2GPS = ptCloud.img2GPS;
+		for(int i=0; i<ptCloud.camMats.size(); i++){
+			int imgIdx = -1;
+			assert(ptCloud.getImageIdxByCameraIdx(i, imgIdx));
+
+			//cam id
+			myfile<<i<<" ";
+
+			//lat lon
+			double lat, lon;
+			assert(ptCloud.getImageGPS(imgIdx, lat, lon));
+			myfile<<setprecision(17)<<lat<<" "<<lon<<" ";
+
+			//image name
+			string imgName = ptCloud.imgs[imgIdx];
+			myfile<<imgName<<" ";
+			//pose
+			Mat r, t;
+			ptCloud.getCamRvecAndT(i, r, t);
+			myfile<<setprecision(17)<<r.at<double>(0)<<" "<<r.at<double>(1)<<" "<<r.at<double>(2)<<" "<<t.at<double>(0)<<" "<<t.at<double>(1)<<" "<<t.at<double>(2)<<" ";
+			//measurements
+			vector<Point2f> xys;
+			vector<int>		pt3DIdxs;
+			ptCloud.getImageMeasurements(imgIdx,xys,pt3DIdxs);
+			assert(xys.size() == pt3DIdxs.size());
+			myfile<<pt3DIdxs.size()<<" ";
+			for(int j=0; j<pt3DIdxs.size(); j++){
+				myfile<<setprecision(17)<<pt3DIdxs[j]<<" "<<xys[j].x<<" "<<xys[j].y<<" ";
 			}
-			fs<<"]";
-		fs<<"}";
+			myfile<<endl;
+		}
+		myfile<<"Cams_end"<<endl;
+
+		//save points
+		myfile<<"Points_start"<<endl;
+		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
+			//point id
+			myfile<<i<<" ";
+			//point coords
+			myfile<<setprecision(17)<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" ";
+			myfile<<endl;
+		}
+		myfile<<"Points_end"<<endl;
+
+		myfile.close();
 	}
-	fs<<"]";
-	cout<<ptCloud.img2pt2Ds.size()<<" image feature sets written"<<endl;
-
-	//3d points
-	fs<<"pt3Ds"<<"[";
-	for(int i=0; i<ptCloud.pt3Ds.size(); i++){
-		const Pt3D &pt3D = ptCloud.pt3Ds[i];
-		const map<int,int>& img2ptIdx = pt3D.img2ptIdx;
-		fs<<"{";
-			fs<<"pt"<<pt3D.pt;
-
-			fs<<"img2ptIdx"<<"[";
-			for(map<int,int>::const_iterator it = img2ptIdx.begin(); it != img2ptIdx.end(); it++ ){
-				fs <<"{";
-				fs <<"imgIdx"  << (*it).first;
-				fs <<"pt2dIdx" << (*it).second;
-				fs <<"}";
-			}
-			fs<<"]";
-
-		fs<<"}";
-	}
-	fs<<"]";
-	cout<<ptCloud.pt3Ds.size()<<" 3D points written"<<endl;
-
-	fs.release();
 }
 
 void ProjectIO::readProject(	const string			&fname,				//including root
@@ -127,7 +288,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 	ptCloud.clear();
 
 	//if yaml
-	if(fname.find("yaml")!=string::npos){
+	if(Utils::endsWith(fname,".yaml")){
 		FileStorage fs;
 		fs.open(fname, FileStorage::READ);
 		fs["camIntrinsicMat"]>>camIntrinsicMat;
@@ -215,7 +376,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 
 		fs.release();
-	}else if(fname.find("nvm")!=string::npos){
+	}else if(Utils::endsWith(fname,".nvm")){
 		cout<<"file format: nvm"<<endl;
 
 		const int LINE_INTRINSICS	= 1;
@@ -332,7 +493,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 								pt2D.pt = Point2f(x_2d, y_2d);
 								pt2D.img_idx = imgIdx;
 								pt2D.pt3D_idx = ptCloud.pt3Ds.size();
-								//leave out descriptor field
+								pt2D.dec = Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
 								ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
 								assert(pt3D.img2ptIdx.find(imgIdx) == pt3D.img2ptIdx.end());
 								pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
@@ -349,5 +510,37 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		}
 		infile.close();
 
+	}
+}
+
+void ProjectIO::readGPS(	const std::string			&fname,
+							PtCloud						&ptCloud)
+{
+	//if csv
+	cout<<fname<<endl;
+	if(Utils::endsWith(fname,".csv")){
+		int currLine				= 0;
+		ifstream infile(fname.c_str());
+		string line;
+		while (getline(infile, line)){
+			if(currLine>0){
+				std::replace( line.begin(), line.end(), ',', ' ');
+				istringstream iss(line);
+				string imgName;
+				double lat,lon,lat_ignore,lon_ignore,id;
+				iss>>lon>>lat>>lon_ignore>>lat_ignore>>id>>imgName;	//XXX: note the order is (lon,lat)
+				for(int i=0; i<ptCloud.imgs.size(); i++){
+
+					//if (ptCloud.imgs[i].compare(imgName) == 0){
+					if (ptCloud.imgs[i]==imgName){
+						ptCloud.img2GPS[i] = make_pair(lat, lon);
+					}
+				}
+			}
+			currLine++;
+		}
+		for(map<int, pair<double,double> >::iterator it = ptCloud.img2GPS.begin(); it!=ptCloud.img2GPS.end(); ++it){
+			cout<<setprecision(20)<<ptCloud.imgs[it->first]<<" ("<<it->second.first<<","<<it->second.second<<")"<<endl;
+		}
 	}
 }

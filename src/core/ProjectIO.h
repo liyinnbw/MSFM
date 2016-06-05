@@ -19,8 +19,7 @@ public:
 	ProjectIO();
 	virtual ~ProjectIO();
 
-	static void writeProject(	const std::string			&root,
-								const std::string			&fname,
+	static void writeProject(	const std::string			&fname,
 								const cv::Mat				&camIntrinsicMat,
 								const cv::Mat 				&camDistortionMat,
 								const int 					&lastAddedImgIdx,
@@ -31,6 +30,9 @@ public:
 								cv::Mat 					&camDistortionMat,
 								int 						&lastAddedImgIdx,
 								PtCloud 					&ptCloud);
+
+	static void readGPS(		const std::string			&fname,
+								PtCloud						&ptCloud);
 };
 
 #endif /* PROJECTIO_H_ */

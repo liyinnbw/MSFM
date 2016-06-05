@@ -40,6 +40,8 @@ public:
 
 	static int getRandomInt(const int Min, const int Max);
 
+	static bool endsWith(const std::string &s, const std::string &suffix);
+
 
 };
 

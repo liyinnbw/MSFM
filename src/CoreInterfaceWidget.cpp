@@ -448,7 +448,7 @@ void CoreInterfaceWidget::getBestOverlappingImgs(const int 					baseImgIdx,
 {
 	core->ptCloud.getBestOverlappingImgs(baseImgIdx, img2pt3Didxs);
 }
-void CoreInterfaceWidget::saveCloud(){
+void CoreInterfaceWidget::saveProject(const QString &fname){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
@@ -459,9 +459,9 @@ void CoreInterfaceWidget::saveCloud(){
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
-	cout<<"core interface save project and cloud"<<endl;
-	core-> writePLY("outputs","");
-	core-> saveProject("save","");
+	cout<<"core interface save project"<<endl;
+	//core-> writePLY("outputs","");
+	core-> saveProject(fname.toStdString());
 }
 
 void CoreInterfaceWidget::loadProject(const QString &pname){
@@ -479,4 +479,30 @@ void CoreInterfaceWidget::loadProject(const QString &pname){
 	}
 }
 
+void CoreInterfaceWidget::loadGPS(const QString &fname){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","project is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface load gps"<<endl;
+	core ->loadGPS(fname.toStdString());
 
+}
+
+void CoreInterfaceWidget::ApplyGlobalTransformation(const std::vector<double> &transformation){
+	cout<<"core interface transform map using given transformation matrix"<<endl;
+
+	cv::Matx34d transfMat(	transformation[0], transformation[1], transformation[2], transformation[3],
+							transformation[4], transformation[5], transformation[6], transformation[7],
+							transformation[8], transformation[9], transformation[10], transformation[11]);
+	cout<<transfMat<<endl;
+
+	core->ptCloud.ApplyGlobalTransformation(Mat(transfMat));
+	emit pointCloudReady(true);	//need to reset camera view
+}

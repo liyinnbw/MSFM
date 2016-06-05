@@ -78,7 +78,7 @@ public:
 
 	bool imageIsUsed(			const int					imgIdx);
 
-	void getXYZs( 				std::vector<cv::Point3f>	&xyzs);
+	void getXYZs( 				std::vector<cv::Point3f>	&xyzs) const;
 
 	void getAverageDecs( 		std::vector<cv::Mat> 		&decs);
 
@@ -89,9 +89,13 @@ public:
 								std::vector<int>			&imgIdxs,
 								std::vector<int>			&pt3DIdxs);
 
+	void getImageMeasurements(	const int					&imgIdx,
+								std::vector<cv::Point2f>	&xys,
+								std::vector<int>			&pt3DIdxs) const;
+
 	void getCamRvecAndT(		const int					camIdx,
 								cv::Mat						&rvec,
-								cv::Mat 					&t);
+								cv::Mat 					&t)	const;
 
 	void getCamRvecsAndTs( 		std::vector<cv::Mat> 		&rvecs,
 								std::vector<cv::Mat> 		&ts);
@@ -108,12 +112,19 @@ public:
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 
+	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
+
+	bool getImageIdxByCameraIdx(const int camIdx, int &imgIdx) const;
+
+	bool getImageGPS(const int imgIdx, double &lat, double &lon) const;
+
 	//data
 	std::string 						imgRoot;
 	std::vector<std::string> 			imgs;		//all input image paths, including non-used ones
 	std::vector<Pt3D> 					pt3Ds;		//3d points
 	std::map<int, std::vector<Pt2D> >	img2pt2Ds;	//used image idx to 2D points detected in this image (including non-triangulated ones)
 	std::vector<cv::Matx34d>			camMats;	//camera mats
+	std::map<int,std::pair<double,double> >img2GPS;	//image latitude longitude info
 	//data correspondences
 	std::map<int, int>					img2camMat;	//used image idx to corresponding camera mat idx
 	std::map<int, int>					camMat2img;	//camera mat idx to corresponding used image idx

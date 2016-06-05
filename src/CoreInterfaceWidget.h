@@ -76,8 +76,9 @@ public slots:
 	void handleReconstructFinished();
 	void bundleAdjust();
 	void handleBundleAdjustFinished();
-	void saveCloud();
+	void saveProject(const QString &);
 	void loadProject(const QString &);
+	void loadGPS(const QString &);
 	void deletePointIdx(const QList<int> idxs);
 	void handleDeletePointIdxFinished();
 	void matchImages(	const int &imgIdx1,
@@ -106,6 +107,7 @@ public:
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
+	void ApplyGlobalTransformation(const std::vector<double> &transformation);
 private:
 	SFMPipeline 				*core;
 	TaskThread 					*tt;

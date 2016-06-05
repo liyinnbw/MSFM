@@ -145,10 +145,11 @@ public:
 	void readPLY(				const std::string 				&path,
 								std::vector<cv::Point3f> 		&xyzs);
 
-	void saveProject(			const std::string 				&root,
-								const std::string 				&fname);
+	void saveProject(			const std::string 				&fname);
 
 	void loadProject(			const std::string				&fname);
+
+	void loadGPS(				const std::string				&fname);
 
 	bool isDone(){return done;}
 	double getCamFocal();

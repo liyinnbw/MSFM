@@ -1070,15 +1070,19 @@ void SFMPipeline::printDebug(){
 	cout<<"mean reprojection error = "<<error<<endl;
 }
 
-void SFMPipeline::saveProject(			const string 				&root,
-										const string 				&fname)
+void SFMPipeline::saveProject(			const string 				&fname)
 {
-	ProjectIO::writeProject(root,fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+	ProjectIO::writeProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
 }
 
 void SFMPipeline::loadProject(			const string				&fname)
 {
 	ProjectIO::readProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+}
+
+void SFMPipeline::loadGPS(				const std::string			&fname)
+{
+	ProjectIO::readGPS(fname,ptCloud);
 }
 
 #include "ptam/KeyFrame.h"

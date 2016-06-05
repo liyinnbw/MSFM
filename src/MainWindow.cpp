@@ -19,6 +19,7 @@
 //#include "KeyFramePanel.h"
 //#include "KeyFrameModel.h"
 #include "core/PathReader.h"
+#include "core/Utils.h"
 
 using namespace std;
 using namespace cv;
@@ -85,6 +86,16 @@ void MainWindow::createActions()
     connect(openSavedAction, SIGNAL(triggered()), this, SLOT(openFile()));
 
 
+    openGPSAction = new QAction(tr("&Open GPS"), this);
+    openGPSAction->setStatusTip(tr("Open GPS file"));
+	connect(openGPSAction, SIGNAL(triggered()), this, SLOT(openGPSFile()));
+
+	saveAction = new QAction(tr("&Save"),this);
+	saveAction->setShortcut(tr("Ctrl+S"));
+	saveAction->setStatusTip(tr("Save project file"));
+	//connect(saveAction, SIGNAL(triggered()), this, SLOT(handleSave()));
+	connect(saveAction, SIGNAL(triggered()), this, SLOT(saveFileAs()));
+
     featureMatchAction = new QAction(tr("&Match"), this);
     featureMatchAction->setStatusTip(tr("Match selected image pair"));
     connect(featureMatchAction, SIGNAL(triggered()), this, SLOT(handleFeatureMatch()));
@@ -97,10 +108,6 @@ void MainWindow::createActions()
 	bundleAdjustmentAction = new QAction(tr("&BA"), this);
 	bundleAdjustmentAction->setStatusTip(tr("Run bundle adjustment on current cloud"));
 	connect(bundleAdjustmentAction, SIGNAL(triggered()), this, SLOT(handleBundleAdjustment()));
-
-	saveAction = new QAction(tr("&Save"),this);
-	saveAction->setStatusTip(tr("Save project file and write <pointCloud>.ply"));
-	connect(saveAction, SIGNAL(triggered()), this, SLOT(handleSave()));
 
 	nextPairAction = new QAction(tr("&NextPair"),this);
 	nextPairAction->setStatusTip(tr("Let the program choose the next pair to match"));
@@ -129,6 +136,8 @@ void MainWindow::createMenus()
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAction);
     fileMenu->addAction(openSavedAction);
+    fileMenu->addAction(openGPSAction);
+    fileMenu->addAction(saveAction);
 }
 
 void MainWindow::createStatusBar()
@@ -141,6 +150,8 @@ void MainWindow::createToolBars()
     fileToolBar = addToolBar(tr("File"));
     fileToolBar->addAction(openAction);
     fileToolBar->addAction(openSavedAction);
+    fileToolBar->addAction(openGPSAction);
+    fileToolBar->addAction(saveAction);
     
     sfmToolBar = addToolBar(tr("SFM"));
 
@@ -150,7 +161,6 @@ void MainWindow::createToolBars()
     sfmToolBar->addAction(reconstructAction);
 	sfmToolBar->addAction(bundleAdjustmentAction);
 	sfmToolBar->addAction(removeBadAction);
-	sfmToolBar->addAction(saveAction);
 	sfmToolBar->addAction(denseAction);
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
@@ -218,10 +228,10 @@ void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	statusBar()->showMessage(tr("deleting points..."));
 	coreInterface->deletePointIdx(idxs);
 }
-void MainWindow::handleSave(){
-	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
-	coreInterface->saveCloud();
-}
+//void MainWindow::handleSave(){
+//	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
+//	coreInterface->saveCloud();
+//}
 void MainWindow::handleNextPair(){
 	statusBar()->showMessage(tr("auto-selecting the next pair to match..."));
 	coreInterface->nextPair();
@@ -308,6 +318,16 @@ void MainWindow::handleLineCommand(){
 				cloudViewer->highlightPointIdx(idxs, camIdx);
 			}
 		}
+	}else if(tokens[0].toLower().compare("transform")==0){
+		std::vector<double> vals;
+		for(int i=1; i<tokens.size(); i++){
+			vals.push_back(tokens.at(i).toDouble());
+		}
+		for(vector<double>::iterator it=vals.begin(); it!=vals.end(); ++it){
+			cout<<(*it)<<" ";
+		}
+		cout<<endl;
+		coreInterface->ApplyGlobalTransformation(vals);
 	}
 	/*
 	std::vector<double> vals;
@@ -377,6 +397,15 @@ void MainWindow::openFile()
     	coreInterface -> loadProject(fileName);
     }
 }
+void MainWindow::openGPSFile(){
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open GPS File"), ".",
+		tr("CSV files (*.csv)"));
+
+	if (!fileName.isEmpty() && loadFile(fileName)==0){
+		coreInterface -> loadGPS(fileName);
+	}
+}
 void MainWindow::openDirectory(){
 
 	 QString dir = QFileDialog::getExistingDirectory(this,
@@ -404,12 +433,38 @@ void MainWindow::openDirectory(){
 
 }
 
+void MainWindow::saveFileAs(){
+
+	string tstr;
+	Utils::getTimeStampAsString(tstr);
+	QFileDialog fd(this);
+	QString ext;
+	QString fileName = fd.getSaveFileName(this,
+	        tr("Save Project"), ".",
+	        tr("TINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)"), &ext);
+
+	if (!fileName.isEmpty()){
+		if(ext=="TINY files (*.tiny)"){
+			fileName+=".tiny";
+		}else if(ext=="PLY files (*.ply)"){
+			fileName+=".ply";
+		}else if(ext=="YAML files (*.yaml)"){
+			fileName+=".yaml";
+		}else if(ext=="NVM files (*.nvm)"){
+			fileName+=".nvm";
+		}
+		cout<<"saving file: "<<fileName.toStdString()<<endl;
+		coreInterface -> saveProject(fileName);
+	}
+
+}
+
 int MainWindow::loadFile(const QString &fileName)
 {
     QFile file(fileName);
     if (!file.open(QFile::ReadOnly | QFile::Text))
     {
-        QMessageBox::warning(this, tr("CloudWidget"),
+        QMessageBox::warning(this, tr("ManualSFM"),
             tr("Cannot read file %1:\n%2.")
             .arg(fileName).arg(file.errorString()));
         return 1;

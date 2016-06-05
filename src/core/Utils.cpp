@@ -77,3 +77,8 @@ void Utils::getTimeStampAsString(std::string &tstmp){
 int Utils::getRandomInt(const int Min, const int Max){
 	return ((rand() % ((Max + 1) - Min)) + Min);
 }
+
+bool Utils::endsWith(const std::string &s, const std::string &suffix){
+	return s.size() >= suffix.size() &&
+	       s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}

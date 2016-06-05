@@ -31,10 +31,12 @@ public:
 private slots:
 	void openFile();
 	void openDirectory();
+	void openGPSFile();
+	void saveFileAs();
 	void handleProjectLoaded();
 	void handleReconstruct();
 	void handleFeatureMatch();
-	void handleSave();
+	//void handleSave();
 	void handleNextPair();
 	void handleBundleAdjustment();
 	void handleDeletePointIdx(const QList<int> idxs);
@@ -55,6 +57,7 @@ private:
 	int loadFile(const QString &fileName);
 
     QAction 				*openAction;
+    QAction 				*openGPSAction;
     QAction 				*openSavedAction;
     QAction 				*featureMatchAction;
 	QAction 				*reconstructAction;
