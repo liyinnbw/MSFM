@@ -74,9 +74,10 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
         }
  	  */
 
-      if(key == "d")
-      {
+      if(key == "d"){
         deleteSelectedPoints();
+      }else if (key == "c"){
+    	  showCameras();
       }
  
       // Forward events
@@ -153,6 +154,23 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
 		this->Points = points;
 	}
 	void setActive(bool val){isActive = val;}
+	void showCameras(){
+		vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(SelectedMapper->GetInput()->GetPointData()->GetArray("OriginalIds"));
+		QList<int> deleteIdxs;
+		deleteIdxs.reserve(ids->GetNumberOfTuples());
+
+		for(vtkIdType i = 0; i < ids->GetNumberOfTuples(); i++)
+		{
+			int originalID = ids->GetValue(i);
+			if(	originalID<parentWidget->numCloudPoints){
+			//std::cout << "delete " << i << " : " << ids->GetValue(i) << std::endl;
+				deleteIdxs.push_back(ids->GetValue(i));
+			}else{
+				//std::cout << "point " << i << " : " << originalID<<" is a camera point" << std::endl;
+			}
+		}
+		parentWidget->showCameras(deleteIdxs);
+	}
 	void deleteSelectedPoints(){
 		vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(SelectedMapper->GetInput()->GetPointData()->GetArray("OriginalIds"));
 		QList<int> deleteIdxs;
@@ -241,6 +259,9 @@ void CloudWidget::deletePoints(const QList<int> idxs){
 
 	disableInteraction(); //prevent further ui inputs untill refresh
 	emit deletePointIdx(idxs);
+}
+void CloudWidget::showCameras(const QList<int> idxs){
+	emit showCamerasSeeingPoints(idxs);
 }
 void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	if(pointsData == NULL) return;

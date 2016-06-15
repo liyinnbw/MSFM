@@ -107,6 +107,8 @@ public:
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
+	void getImgsSeeingPoints(	const std::vector<int> 					&pt3DIdxs,
+								std::vector<std::vector<int> >			&pt2Imgs);
 	void ApplyGlobalTransformation(const std::vector<double> &transformation);
 private:
 	SFMPipeline 				*core;

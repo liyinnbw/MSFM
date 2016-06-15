@@ -13,6 +13,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include "ProjectIO.h"
 #include "PtCloud.h"
+#include "PathReader.h"
 #include "Utils.h"
 
 using namespace std;
@@ -222,10 +223,23 @@ void ProjectIO::writeProject(	const string			&fname,
 		//save calibration
 		//XXX: assumed principle is the image center, assumed same x,y focal
 		//TODO: change the small distortion to zero
+		int imgW = camIntrinsicMat.at<double>(0,2)*2;
+		int imgH = camIntrinsicMat.at<double>(1,2)*2;
 		double f = camIntrinsicMat.at<double>(0,0);
-		double fx= f/(camIntrinsicMat.at<double>(0,2)*2);
-		double fy= f/(camIntrinsicMat.at<double>(1,2)*2);
-		myfile<<"CamParam: "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
+		double fx= f/imgW;
+		double fy= f/imgH;
+		myfile<<"CamParam: "<<imgW<<" "<<imgH<<" "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
+
+		//save points
+		myfile<<"Points_start"<<endl;
+		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
+			//point id
+			myfile<<i<<" ";
+			//point coords
+			myfile<<setprecision(17)<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" ";
+			myfile<<endl;
+		}
+		myfile<<"Points_end"<<endl;
 
 		//save camera
 		myfile<<"Cams_start"<<endl;
@@ -263,16 +277,7 @@ void ProjectIO::writeProject(	const string			&fname,
 		}
 		myfile<<"Cams_end"<<endl;
 
-		//save points
-		myfile<<"Points_start"<<endl;
-		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
-			//point id
-			myfile<<i<<" ";
-			//point coords
-			myfile<<setprecision(17)<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" ";
-			myfile<<endl;
-		}
-		myfile<<"Points_end"<<endl;
+
 
 		myfile.close();
 	}
@@ -510,7 +515,194 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		}
 		infile.close();
 
+	}else if(Utils::endsWith(fname,".patch")){
+		cout<<"file format: patch"<<endl;
+		ifstream infile(fname.c_str());
+		string line;
+		bool readIntrinsics = false;
+		while (getline(infile, line)){
+			if(line.find("IMGROOT")!=std::string::npos){
+				getline(infile, line);
+				istringstream iss(line);
+				iss>>ptCloud.imgRoot;
+				cout<<"imgRoot: "<<ptCloud.imgRoot<<endl;
+				//PathReader::readPaths(ptCloud.imgRoot,ptCloud.imgs);
+			}else if(line.find("CAMERA_START")!=std::string::npos){
+				cout<<"camera start"<<endl;
+				getline(infile, line);
+				while(line.find("CAMERA_END")==std::string::npos){
+					//cout<<line;
+					if(line.find(".jpg")!=std::string::npos){
+						//get image name and idx
+						istringstream iss0(line);
+						string imgName;
+						iss0>>imgName;
+						int imgIdx = Utils::extractInt(line);
+
+						//get original image name
+						getline(infile, line);
+						istringstream iss00(line);
+						string originalImgName;
+						iss00>>originalImgName;
+
+						//get focal length
+						getline(infile, line);
+						istringstream iss(line);
+						double f;
+						iss>>f;
+
+						//get principle
+						getline(infile, line);
+						istringstream iss2(line);
+						double ppx, ppy;
+						iss2>>ppx>>ppy;
+
+						//get camera translation
+						getline(infile, line);
+						istringstream iss3(line);
+						double t0,t1,t2;
+						iss3>>t0>>t1>>t2;
+
+						//ignore lines
+						getline(infile, line);
+						getline(infile, line);
+						getline(infile, line);
+
+						//get camera rotation
+						getline(infile, line);
+						istringstream iss4(line);
+						double r00,r01,r02;
+						iss4>>r00>>r01>>r02;
+						getline(infile, line);
+						istringstream iss5(line);
+						double r10,r11,r12;
+						iss5>>r10>>r11>>r12;
+						getline(infile, line);
+						istringstream iss6(line);
+						double r20,r21,r22;
+						iss6>>r20>>r21>>r22;
+
+						//get distortion
+						getline(infile, line);
+						istringstream iss7(line);
+						double r;
+						iss7>>r;
+
+						//ignore line
+						getline(infile, line);
+
+						//save camera intrinsics if not done so
+						if(!readIntrinsics){
+							double camMatArr[9] 		= { f, 			0.0, 		ppx,
+															0.0, 		f, 			ppy,
+															0.0,		0.0,		1.0 };
+							double distortCoeffArr[5] 	= { r, 0, 0, 0, 0 };
+							Mat CM(3, 3, CV_64F, camMatArr);
+							Mat DM(1, 5, CV_64F, distortCoeffArr);
+							camIntrinsicMat = CM.clone();	//must copy the data else they will be destroyed after constructor
+							camDistortionMat= DM.clone();	//must copy the data else they will be destroyed after constructor
+							cout<<camIntrinsicMat<<endl;
+							cout<<camDistortionMat<<endl;
+							readIntrinsics = true;
+						}
+
+						//add camMat
+						Matx34d cm(	r00,r01,r02,t0,
+									r10,r11,r12,t1,
+									r20,r21,r22,t2);
+						ptCloud.imgs.push_back(imgName);
+						ptCloud.camMats.push_back(cm);
+						ptCloud.img2camMat[imgIdx] = imgIdx;
+						ptCloud.camMat2img[imgIdx] = imgIdx;
+						cout<<"read img & camera ["<<imgIdx<<"] "<<imgName<<endl;
+					}
+					getline(infile, line);
+				}
+				cout<<"camera end"<<endl;
+			}else if(line.find("PATCHS")!=std::string::npos){
+				//get 3d coordinates
+				getline(infile, line);
+				istringstream iss(line);
+				double x,y,z;
+				iss>>x>>y>>z;
+				Pt3D pt3D;
+				pt3D.pt = Point3f(x,y,z);
+
+				//ignore 2 lines
+				getline(infile, line);
+				getline(infile, line);
+
+				//get number of measurements
+				getline(infile, line);
+				int numMeasures;
+				istringstream iss2(line);
+				iss2>>numMeasures;
+
+				//get measurements
+				getline(infile, line);
+				istringstream iss3(line);
+				while(numMeasures-->0){
+					int imgIdx;
+					double x_2d, y_2d;
+					iss3>>imgIdx>>x_2d>>y_2d;
+					Pt2D pt2D;
+					pt2D.pt = Point2f(x_2d, y_2d);
+					pt2D.img_idx = imgIdx;
+					pt2D.pt3D_idx = ptCloud.pt3Ds.size();
+					pt2D.dec = Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
+					ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
+					assert(pt3D.img2ptIdx.find(imgIdx) == pt3D.img2ptIdx.end());
+					pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
+				}
+
+				//get number of visible measurements
+				getline(infile, line);
+				istringstream iss4(line);
+				iss4>>numMeasures;
+
+				//get measurements
+				getline(infile, line);
+				istringstream iss5(line);
+				while(numMeasures-->0){
+					int imgIdx;
+					double x_2d, y_2d;
+					iss5>>imgIdx>>x_2d>>y_2d;
+					Pt2D pt2D;
+					pt2D.pt = Point2f(x_2d, y_2d);
+					pt2D.img_idx = imgIdx;
+					pt2D.pt3D_idx = ptCloud.pt3Ds.size();
+					pt2D.dec = Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
+					ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
+					assert(pt3D.img2ptIdx.find(imgIdx) == pt3D.img2ptIdx.end());
+					pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
+				}
+				ptCloud.pt3Ds.push_back(pt3D);
+			}
+
+		}
+		cout<<ptCloud.pt3Ds.size()<<" 3D points read"<<endl;
+
+		bool hasRemovedACamera = true;
+		while(hasRemovedACamera){
+			hasRemovedACamera = false;
+			for(int i=0; i<ptCloud.imgs.size(); i++){
+				if(ptCloud.img2pt2Ds.find(i)==ptCloud.img2pt2Ds.end() && ptCloud.imageIsUsed(i)){
+					int camIdx = ptCloud.img2camMat[i];
+					ptCloud.removeCamera(camIdx);
+					hasRemovedACamera = true;
+					cout<<ptCloud.imgs[i]<<" is not used"<<endl;
+					break;
+				}
+			}
+
+		}
+		cout<<ptCloud.camMats.size()<<"/"<<ptCloud.imgs.size()<<" images used"<<endl;
 	}
+	for(int i=0; i<ptCloud.camMats.size(); i++){
+		int imgIdx = ptCloud.camMat2img[i];
+		ptCloud.img2GPS[imgIdx] = make_pair(0,0);	//dummy
+	}
+
 }
 
 void ProjectIO::readGPS(	const std::string			&fname,

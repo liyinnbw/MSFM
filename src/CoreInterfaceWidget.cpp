@@ -241,6 +241,7 @@ void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
 	connect(tt, SIGNAL(finished()), this, SLOT(handleDeletePointIdxFinished()));
 	tt -> start();
 }
+
 void CoreInterfaceWidget::handleDeletePointIdxFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleDeletePointIdxFinished()));
 	emit pointCloudReady(true);
@@ -447,6 +448,11 @@ void CoreInterfaceWidget::getBestOverlappingImgs(const int 					baseImgIdx,
 												map<int,vector<int> > 		&img2pt3Didxs)
 {
 	core->ptCloud.getBestOverlappingImgs(baseImgIdx, img2pt3Didxs);
+}
+void CoreInterfaceWidget::getImgsSeeingPoints(	const vector<int> 			&pt3DIdxs,
+												vector<vector<int> >		&pt2Imgs){
+
+	core->ptCloud.getImgsSeeingPoints(pt3DIdxs, pt2Imgs);
 }
 void CoreInterfaceWidget::saveProject(const QString &fname){
 	if(!coreIsSet()){

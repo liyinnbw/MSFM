@@ -112,11 +112,16 @@ public:
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 
+	void getImgsSeeingPoints(	const std::vector<int> 					&pt3DIdxs,
+								std::vector<std::vector<int> >			&pt2Imgs);
+
 	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
 
 	bool getImageIdxByCameraIdx(const int camIdx, int &imgIdx) const;
 
 	bool getImageGPS(const int imgIdx, double &lat, double &lon) const;
+
+	void removeCamera(const int camIdx);
 
 	//data
 	std::string 						imgRoot;

@@ -15,7 +15,6 @@ public:
 	PathReader();
 	virtual ~PathReader();
 	void static readPaths(	const std::string 				&root,
-							const std::string 				&ext,
 							std::vector<std::string> 		&paths
 							);
 };

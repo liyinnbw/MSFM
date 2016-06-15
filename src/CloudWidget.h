@@ -32,6 +32,7 @@ class CloudWidget: public QVTKWidget
 
 signals:
 	void deletePointIdx(const QList<int> idxs);
+	void showCamerasSeeingPoints(const QList<int> idxs);
 
 public slots:
 	void loadCloud(QString fileName);
@@ -41,6 +42,7 @@ public slots:
 public:
 	CloudWidget(QWidget *parent = 0);
 	void deletePoints(const QList<int> idxs);
+	void showCameras(const QList<int> idxs);
 	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
 	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams, bool resetView);
 	const static int 			POINT_SIZE = 3;

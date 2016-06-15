@@ -173,6 +173,7 @@ void MainWindow::createToolBars()
 void MainWindow::connectWidgets(){
 	connect(commandBox, SIGNAL(returnPressed()), this, SLOT(handleLineCommand()));
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
+	connect(cloudViewer, SIGNAL(showCamerasSeeingPoints(const QList<int>)), this, SLOT(handleShowCamerasSeeingPoints(const QList<int>)));
 	connect(coreInterface, SIGNAL(pointCloudReady(bool)), this, SLOT(displayPointCloud(bool)));
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
@@ -227,6 +228,27 @@ void MainWindow::handleBundleAdjustment(){
 void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	statusBar()->showMessage(tr("deleting points..."));
 	coreInterface->deletePointIdx(idxs);
+}
+void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
+	statusBar()->showMessage(tr("showing cameras..."));
+	displayPointCloud(false);
+	vector<int> pt3DIdxs;
+	pt3DIdxs.reserve(idxs.size());
+	for(int i=0; i<idxs.size(); i++){
+		pt3DIdxs.push_back(idxs[i]);
+	}
+	vector<vector<int> > pt2Imgs;
+	coreInterface->getImgsSeeingPoints(pt3DIdxs,pt2Imgs);
+	for(int i=0; i<pt3DIdxs.size(); i++){
+		for(int j=0; j<pt2Imgs[i].size(); j++){
+			int camIdx;
+			coreInterface->getCameraIdx(pt2Imgs[i][j],camIdx);
+			QList<int> ptIdxs;
+			ptIdxs.push_back(pt3DIdxs[i]);
+			cloudViewer->highlightPointIdx(ptIdxs, camIdx);
+		}
+
+	}
 }
 //void MainWindow::handleSave(){
 //	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
@@ -391,7 +413,7 @@ void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("Open Project"), ".",
-		tr("YAML files (*.yaml)\nNVM files (*.nvm)"));
+		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
     	coreInterface -> loadProject(fileName);
@@ -418,9 +440,7 @@ void MainWindow::openDirectory(){
 	 imageRoot = dir;
 	 cout<<dir.toStdString()<<endl;
 	 vector<string> sortedImageList;
-	 //PathReader::readPaths(dir.toStdString(),".jpg", sortedImageList);
-	 PathReader::readPaths(dir.toStdString(),".JPG", sortedImageList);
-	 //PathReader::readPaths(dir.toStdString(),".png", sortedImageList);
+	 PathReader::readPaths(dir.toStdString(),sortedImageList);
 	 QList<QString> imageList;
 	 imageList.reserve(sortedImageList.size());
 	 for(int i=0; i<sortedImageList.size(); i++){

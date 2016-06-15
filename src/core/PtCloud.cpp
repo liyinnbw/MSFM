@@ -522,6 +522,21 @@ void PtCloud::getBestOverlappingImgs(	const int 					baseImgIdx,
 
 }
 
+void PtCloud::getImgsSeeingPoints(		const std::vector<int> 					&pt3DIdxs,
+										std::vector<std::vector<int> >			&pt2Imgs)
+{
+	pt2Imgs.clear();
+	pt2Imgs.reserve(pt3DIdxs.size());
+	for(int i=0; i<pt3DIdxs.size(); i++){
+		int pt3DIdx = pt3DIdxs[i];
+		vector<int> imgs;
+		imgs.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
+		for(map<int, int>::iterator it=pt3Ds[pt3DIdx].img2ptIdx.begin(); it!=pt3Ds[pt3DIdx].img2ptIdx.end(); ++it){
+			imgs.push_back(it->first);
+		}
+		pt2Imgs.push_back(imgs);
+	}
+}
 
 void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 	vector<Point3f>	xyzs;
@@ -581,5 +596,34 @@ bool PtCloud::getImageGPS(const int imgIdx, double &lat, double &lon) const{
 		lat = it->second.first;
 		lon = it->second.second;
 		return true;
+	}
+}
+
+void PtCloud::removeCamera(const int camIdx){
+	assert(camIdx>=0 && camIdx<camMats.size());
+	assert(camMat2img.find(camIdx)!=camMat2img.end());
+	int imgIdx = camMat2img[camIdx];
+	//remove measurements
+	if(img2pt2Ds.find(imgIdx) != img2pt2Ds.end()){
+		vector<Pt2D> &pt2Ds = img2pt2Ds[imgIdx];
+		for(int i=0; i<pt2Ds.size(); i++){
+			int pt3DIdx = pt2Ds[i].pt3D_idx;
+			assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)!=pt3Ds[pt3DIdx].img2ptIdx.end());
+			pt3Ds[pt3DIdx].img2ptIdx.erase(imgIdx);
+			assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)==pt3Ds[pt3DIdx].img2ptIdx.end());
+			//TODO: remove 3d points with measuremnt = 0
+		}
+		img2pt2Ds.erase(imgIdx);
+	}
+
+	//remove camera and affected data structures
+	camMats.erase(camMats.begin() + camIdx);
+	img2camMat.erase(imgIdx);
+	camMat2img.clear();
+	for(map<int, int>::iterator it = img2camMat.begin(); it!=img2camMat.end(); ++it){
+		if(it->second>camIdx){
+			it->second--;
+		}
+		camMat2img[it->second] = it->first;
 	}
 }

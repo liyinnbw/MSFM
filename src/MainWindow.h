@@ -40,6 +40,7 @@ private slots:
 	void handleNextPair();
 	void handleBundleAdjustment();
 	void handleDeletePointIdx(const QList<int> idxs);
+	void handleShowCamerasSeeingPoints(const QList<int> idxs);
 	void handleCheckMatch();
 	void handleRemoveBad();
 	void handleDense();
