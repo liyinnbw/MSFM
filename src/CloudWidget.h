@@ -35,7 +35,6 @@ signals:
 	void showCamerasSeeingPoints(const QList<int> idxs);
 
 public slots:
-	void loadCloud(QString fileName);
 	void highlightPointIdx(const QList<int> idxs, const int camIdx);
 
 	
@@ -44,7 +43,7 @@ public:
 	void deletePoints(const QList<int> idxs);
 	void showCameras(const QList<int> idxs);
 	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
-	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Matx34d> &cams, bool resetView);
+	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Point3f> &norms, const std::vector<cv::Matx34d> &cams, bool resetView);
 	const static int 			POINT_SIZE = 3;
 	const static int 			LINE_WIDTH = 2;
 	int 						numCloudPoints;

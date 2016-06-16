@@ -90,6 +90,7 @@ public:
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
+	void getPointNormals(	std::vector<cv::Point3f> &norms);
 	void getCameras(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
 	void getAll3DfromImage2D(	const int 					imgIdx,
@@ -107,8 +108,9 @@ public:
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
-	void getImgsSeeingPoints(	const std::vector<int> 					&pt3DIdxs,
-								std::vector<std::vector<int> >			&pt2Imgs);
+	void getMeasuresToPoints(	const std::vector<int> 								&pt3DIdxs,
+								std::vector<std::vector<int> >						&pt3D2Imgs,
+								std::vector<std::vector<std::pair<float,float> > > 	&pt3D2pt2Ds);
 	void ApplyGlobalTransformation(const std::vector<double> &transformation);
 private:
 	SFMPipeline 				*core;

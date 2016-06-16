@@ -11,9 +11,11 @@ src/main.cpp
 src/MainWindow.cpp
 src/CloudWidget.cpp
 src/ImageWidget.cpp
+src/ImageTileWidget.cpp
 src/MatchWidget.cpp
 src/MatchPanel.cpp
 src/MatchPanelModel.cpp
+src/VisibleImagesPanel.cpp
 src/KeyFramePanel.cpp
 src/KeyFrameModel.cpp
 src/core/PlyIO.cpp
@@ -77,8 +79,10 @@ src/MainWindow.h
 src/CloudWidget.h
 src/CoreInterfaceWidget.h
 src/ImageWidget.h
+src/ImageTileWidget.h
 src/MatchWidget.h
 src/MatchPanel.h
+src/VisibleImagesPanel.h
 src/MatchPanelModel.h
 src/KeyFramePanel.h
 src/KeyFrameModel.h

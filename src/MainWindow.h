@@ -13,6 +13,7 @@
 class QAction;
 class CloudWidget;
 class MatchPanelModel;
+class VisibleImagesPanel;
 class QToolBar;
 class CoreInterfaceWidget;
 class MatchPanel;
@@ -47,6 +48,7 @@ private slots:
 	void displayPointCloud(bool resetView);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
+	void handleNormalRenderToggle();
 
 private:
     void createWidgets();
@@ -68,6 +70,7 @@ private:
 	QAction					*removeBadAction;
 	QAction 				*saveAction;
 	QAction 				*denseAction;
+	QAction 				*renderNormalToggleAction;
 	//QAction					*keyframeAction;
 	
 	QToolBar 				*fileToolBar;
@@ -77,12 +80,14 @@ private:
 	CloudWidget 			*cloudViewer;
 	CoreInterfaceWidget 	*coreInterface;
 	MatchPanel 				*matchPanel;
+	VisibleImagesPanel		*visibleImagesPanel;
 	MatchPanelModel 		*matchPanelModel;
 	QLineEdit				*commandBox;
 	//KeyFramePanel			*keyframePanel;
 	//KeyFrameModel			*keyframeModel;
 
 	QString 				imageRoot;
+	bool					showNormal;
 };
 
 #endif

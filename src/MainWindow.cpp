@@ -15,6 +15,7 @@
 #include "ImageWidget.h"
 #include "MatchWidget.h"
 #include "MatchPanel.h"
+#include "VisibleImagesPanel.h"
 #include "MatchPanelModel.h"
 //#include "KeyFramePanel.h"
 //#include "KeyFrameModel.h"
@@ -46,18 +47,23 @@ void MainWindow::createWidgets()
 	//setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);	
 
 
-	cloudViewer 	= new CloudWidget;
-	coreInterface 	= new CoreInterfaceWidget;
-	matchPanel 		= new MatchPanel;
-	matchPanelModel = new MatchPanelModel;
-	commandBox		= new QLineEdit;
+	cloudViewer 		= new CloudWidget;
+	coreInterface 		= new CoreInterfaceWidget;
+	matchPanel 			= new MatchPanel;
+	visibleImagesPanel 	= new VisibleImagesPanel;
+	matchPanelModel 	= new MatchPanelModel;
+	commandBox			= new QLineEdit;
 	//keyframePanel 	= new KeyFramePanel;
 	//keyframeModel 	= new KeyFrameModel(coreInterface);
+
+	QTabWidget 	*tabs	= new QTabWidget;
+	tabs->addTab(matchPanel, tr("MatchPanel"));
+	tabs->addTab(visibleImagesPanel, tr("VisibleImages"));
 
 	QSplitter *splitter =  new QSplitter;
 	splitter->setOrientation(Qt::Horizontal);
 
-	splitter->addWidget(matchPanel);
+	splitter->addWidget(tabs);
 	//splitter->addWidget(keyframePanel);
 	splitter->addWidget(cloudViewer);
 
@@ -129,6 +135,11 @@ void MainWindow::createActions()
 	//keyframeAction->setStatusTip(tr("Compute KeyFrame"));
 	//connect(keyframeAction, SIGNAL(triggered()), keyframePanel, SLOT(computeKeyFrame()));
 
+	renderNormalToggleAction = new QAction(tr("&Show/Hide Normal"),this);
+	showNormal = false;
+	renderNormalToggleAction->setStatusTip(tr("Show/Hide Normal"));
+	connect(renderNormalToggleAction, SIGNAL(triggered()), this, SLOT(handleNormalRenderToggle()));
+
 }
 
 void MainWindow::createMenus()
@@ -138,6 +149,8 @@ void MainWindow::createMenus()
     fileMenu->addAction(openSavedAction);
     fileMenu->addAction(openGPSAction);
     fileMenu->addAction(saveAction);
+    QMenu *optionMenu = menuBar()->addMenu(tr("&Option"));
+    optionMenu->addAction(renderNormalToggleAction);
 }
 
 void MainWindow::createStatusBar()
@@ -193,6 +206,7 @@ void MainWindow::handleProjectLoaded(){
 	QList<QString> imgList;
 	coreInterface->getImagePaths(imgRoot, imgList);
 	matchPanel->setImagePaths(imgRoot, imgList);
+	visibleImagesPanel->setImagePaths(imgRoot, imgList);
 	//keyframePanel->setImagePaths(imgRoot, imgList);
 }
 
@@ -227,6 +241,7 @@ void MainWindow::handleBundleAdjustment(){
 }
 void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	statusBar()->showMessage(tr("deleting points..."));
+	displayPointCloud(false);
 	coreInterface->deletePointIdx(idxs);
 }
 void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
@@ -238,7 +253,8 @@ void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
 		pt3DIdxs.push_back(idxs[i]);
 	}
 	vector<vector<int> > pt2Imgs;
-	coreInterface->getImgsSeeingPoints(pt3DIdxs,pt2Imgs);
+	vector<vector<pair<float,float> > > pt3D2pt2Ds;
+	coreInterface->getMeasuresToPoints(pt3DIdxs,pt2Imgs,pt3D2pt2Ds);
 	for(int i=0; i<pt3DIdxs.size(); i++){
 		for(int j=0; j<pt2Imgs[i].size(); j++){
 			int camIdx;
@@ -247,8 +263,21 @@ void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
 			ptIdxs.push_back(pt3DIdxs[i]);
 			cloudViewer->highlightPointIdx(ptIdxs, camIdx);
 		}
-
 	}
+
+	QMap<int, QList<QPointF> > img2pt2Ds;
+	for(int i=0; i<pt2Imgs.size(); i++){
+		for(int j=0; j<pt2Imgs[i].size(); j++){
+			int imgIdx 	= pt2Imgs[i][j];
+			float x 	= pt3D2pt2Ds[i][j].first;
+			float y		= pt3D2pt2Ds[i][j].second;
+			if(img2pt2Ds.find(imgIdx) == img2pt2Ds.end()){
+				img2pt2Ds[imgIdx] = QList<QPointF>();
+			}
+			img2pt2Ds[imgIdx].push_back(QPointF(x,y));
+		}
+	}
+	visibleImagesPanel->setVisibleImagesAndMeasures(img2pt2Ds);
 }
 //void MainWindow::handleSave(){
 //	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
@@ -366,12 +395,15 @@ void MainWindow::handleLineCommand(){
 }
 void MainWindow::displayPointCloud(bool resetView){
 	statusBar()->showMessage(tr("loading cloud..."));
-	vector<Point3f> xyzs;
+	vector<Point3f> xyzs, norms;
 	coreInterface->getPointCloud(xyzs);
+	if(showNormal){
+		coreInterface->getPointNormals(norms);
+	}
 	vector<Matx34d> cams;
 	coreInterface->getCameras(cams);
 	//cloudViewer->loadCloud(xyzs);
-	cloudViewer->loadCloudAndCamera(xyzs,cams, resetView);
+	cloudViewer->loadCloudAndCamera(xyzs, norms, cams, resetView);
 	statusBar()->showMessage(tr("cloud loaded"));
 	
 	//also update imgList2 to include only used images
@@ -380,7 +412,10 @@ void MainWindow::displayPointCloud(bool resetView){
 	matchPanel->handleImageUsed(useImgIdxs);
 
 }
-
+void MainWindow::handleNormalRenderToggle(){
+	showNormal = !showNormal;
+	displayPointCloud(false);
+}
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	displayPointCloud(false);	//to reset previous highlights just reload the point cloud
 
@@ -449,6 +484,7 @@ void MainWindow::openDirectory(){
 
 	 coreInterface 	->setImagePaths(imageRoot, imageList);
 	 matchPanel		->setImagePaths(imageRoot, imageList);
+	 visibleImagesPanel		->setImagePaths(imageRoot, imageList);
 	 //keyframePanel 	->setImagePaths(imageRoot, imageList);
 
 }

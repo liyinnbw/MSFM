@@ -335,16 +335,8 @@ void CloudWidget::disableInteraction(){
 void CloudWidget::enableInteraction(){
 	style->setActive(true);
 }
-void CloudWidget::loadCloud( QString fileName ){
-	disableInteraction();
-	vector<Point3f> xyzs;
-	string fname = fileName.toStdString();
-	PlyIO::readPLY(fname, xyzs);
-	loadCloudAndCamera(xyzs, vector<Matx34d>(), true);
-	enableInteraction();
 
-}
-void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Matx34d> &cameras, bool resetView){
+void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Point3f> &norms, const vector<Matx34d> &cameras, bool resetView){
 	disableInteraction();
 
 	//constants
@@ -352,6 +344,7 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
 	unsigned char green[3] = {0, 255, 0};
 	unsigned char blue[3] = {0, 0, 255};
 	unsigned char white[3] = {255, 255, 255};
+	unsigned char yellow[3] = {255, 255, 0};
 
 	//insert points to vtk data structure
 	// Create the geometry of a point (the coordinate)
@@ -457,6 +450,27 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<M
 		colors->InsertNextTypedTuple(blue);
 	#endif
 
+	}
+
+	//add normals
+	if(!norms.empty()){
+		for(int i=0; i<numCloudPoints; i++){
+			//create & insert points
+			vtkIdType idfrm    	= points->InsertNextPoint(xyzs[i].x, xyzs[i].y, xyzs[i].z);
+			vtkIdType idto    	= points->InsertNextPoint(xyzs[i].x+norms[i].x*0.1, xyzs[i].y+norms[i].y*0.1, xyzs[i].z+norms[i].z*0.1);
+			//create edges
+			vtkSmartPointer<vtkLine> normal = vtkSmartPointer<vtkLine>::New();
+			normal->GetPointIds()->SetId(0, idfrm);
+			normal->GetPointIds()->SetId(1, idto);
+			//insert edges
+			edges->InsertNextCell(normal);
+			//insert cell colors for edges
+		#if VTK_MAJOR_VERSION < 7
+			colors->InsertNextTupleValue(yellow);
+		#else
+			colors->InsertNextTypedTuple(yellow);
+		#endif
+		}
 	}
 
   pointsData = vtkPolyData::New();

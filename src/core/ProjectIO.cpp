@@ -229,15 +229,17 @@ void ProjectIO::writeProject(	const string			&fname,
 		double fx= f/imgW;
 		double fy= f/imgH;
 		myfile<<"CamParam: "<<imgW<<" "<<imgH<<" "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
-
+		myfile<<"HasNormal: 1"<<endl;
 		//save points
 		myfile<<"Points_start"<<endl;
 		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
 			//point id
 			myfile<<i<<" ";
 			//point coords
-			myfile<<setprecision(17)<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" ";
-			myfile<<endl;
+			myfile	<<setprecision(17)
+					<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" "
+					<<ptCloud.pt3Ds[i].norm.x<<" "<<ptCloud.pt3Ds[i].norm.y<<" "<<ptCloud.pt3Ds[i].norm.z
+					<<endl;
 		}
 		myfile<<"Points_end"<<endl;
 
@@ -360,6 +362,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 			for(FileNodeIterator it = nodePt3Ds.begin(); it!= nodePt3Ds.end(); it++){
 				FileNode n = (FileNode) (*it);
 				Pt3D pt3D;
+				pt3D.norm = Point3f(0,0,0);
 				n["pt"]>>pt3D.pt;
 				FileNode nodeImg2ptIdx = (FileNode) n["img2ptIdx"];
 				if (nodeImg2ptIdx.type() == FileNode::SEQ){
@@ -484,6 +487,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 							int measurementCnt;
 							iss2>>x>>y>>z>>r>>g>>b>>measurementCnt;
 							Pt3D pt3D;
+							pt3D.norm = Point3f(0,0,0);
 							pt3D.pt = Point3f(x,y,z);
 							//2D measurements
 							while(measurementCnt-->0){
@@ -628,8 +632,14 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 				Pt3D pt3D;
 				pt3D.pt = Point3f(x,y,z);
 
-				//ignore 2 lines
+				//get point normal
 				getline(infile, line);
+				istringstream iss1(line);
+				double nx, ny, nz;
+				iss1>>nx>>ny>>nz;
+				pt3D.norm = Point3f(nx,ny,nz);	//by right this should already been normalized
+
+				//ignore a line
 				getline(infile, line);
 
 				//get number of measurements

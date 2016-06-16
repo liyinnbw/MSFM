@@ -25,6 +25,7 @@ struct Pt2D {
 
 struct Pt3D {
 	cv::Point3f 			pt;				//xyz
+	cv::Point3f 			norm;			//normal vector in world coordinate
 	std::map<int, int> 		img2ptIdx;		//corresponding image idx and idx of 2D point in that image
 	std::map<int, float> 	img2error;		//corresponding image idx and repojection error on that image
 
@@ -80,6 +81,8 @@ public:
 
 	void getXYZs( 				std::vector<cv::Point3f>	&xyzs) const;
 
+	void getPointNormals(		std::vector<cv::Point3f>	&norms) const;
+
 	void getAverageDecs( 		std::vector<cv::Mat> 		&decs);
 
 	void getAverageDecAtPt3DIdx(const int					idx,
@@ -114,6 +117,10 @@ public:
 
 	void getImgsSeeingPoints(	const std::vector<int> 					&pt3DIdxs,
 								std::vector<std::vector<int> >			&pt2Imgs);
+
+	void getMeasuresToPoints(	const std::vector<int> 								&pt3DIdxs,
+								std::vector<std::vector<int> >						&pt3D2Imgs,
+								std::vector<std::vector<std::pair<float,float> > >	&pt3D2pt2Ds);
 
 	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
 

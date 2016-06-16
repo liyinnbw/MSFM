@@ -87,7 +87,7 @@ void PtCloud::add3D(	const int 				imgIdx1,
 		pt2Ds2[pt2D_idx2].pt3D_idx = pt3Ds.size()-1;
 	}
 }
-
+/*
 void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
 	assert(removeMask.size() == pt3Ds.size());
 	vector<Pt3D>::iterator it = pt3Ds.begin();
@@ -122,6 +122,41 @@ void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
 		i++;
 	}
 	assert(removed == (removeMask.size() - pt3Ds.size()));
+
+}*/
+void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
+	assert(removeMask.size() == pt3Ds.size());
+	int removeCnt = 0;
+
+	//before removing 3d point, update 2d measures
+	for(int i=0; i<removeMask.size(); i++){
+		int newPt3DIdx;
+		if(removeMask[i]){
+			newPt3DIdx = -1;
+			removeCnt++;
+		}else{
+			newPt3DIdx = i - removeCnt;
+		}
+		const map<int,int>& img2ptIdx = pt3Ds[i].img2ptIdx;
+		//NOTE: you must use const_iterator to iterate through const data
+		for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			int imgIdx 	= (*j).first;
+			int imgPtIdx= (*j).second;
+			img2pt2Ds[imgIdx][imgPtIdx].pt3D_idx = newPt3DIdx;
+		}
+	}
+
+	//remove 3ds (for vector, faster to copy than to erase)
+	vector<Pt3D> newPt3Ds;
+	newPt3Ds.reserve(pt3Ds.size() - removeCnt);
+	for(int i=0; i<removeMask.size(); i++){
+		if(!removeMask[i]){
+			newPt3Ds.push_back(pt3Ds[i]);
+		}
+	}
+	pt3Ds = newPt3Ds;
+
+	assert(removeCnt == (removeMask.size() - pt3Ds.size()));
 
 }
 
@@ -252,6 +287,13 @@ void PtCloud::getXYZs( 			vector<Point3f>		&xyzs) const{
 	}
 }
 
+void PtCloud::getPointNormals(		vector<cv::Point3f>	&norms) const{
+	norms.clear();
+	norms.reserve(pt3Ds.size());
+	for(int i=0; i<pt3Ds.size(); i++){
+		norms.push_back(pt3Ds[i].norm);
+	}
+}
 void PtCloud::getAverageDecs( 	vector<Mat> 		&decs){
 	decs.clear();
 	decs.reserve(pt3Ds.size());
@@ -537,7 +579,30 @@ void PtCloud::getImgsSeeingPoints(		const std::vector<int> 					&pt3DIdxs,
 		pt2Imgs.push_back(imgs);
 	}
 }
-
+void PtCloud::getMeasuresToPoints(		const std::vector<int> 					&pt3DIdxs,
+										std::vector<std::vector<int> >			&pt3D2Imgs,
+										vector<vector<pair<float,float> > >		&pt3D2pt2Ds)
+{
+	pt3D2Imgs.clear();
+	pt3D2pt2Ds.clear();
+	pt3D2Imgs.reserve(pt3DIdxs.size());
+	pt3D2pt2Ds.reserve(pt3DIdxs.size());
+	for(int i=0; i<pt3DIdxs.size(); i++){
+		int pt3DIdx = pt3DIdxs[i];
+		vector<int> imgs;
+		vector<pair<float,float> > pt2Ds;
+		imgs.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
+		pt2Ds.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
+		for(map<int, int>::iterator it=pt3Ds[pt3DIdx].img2ptIdx.begin(); it!=pt3Ds[pt3DIdx].img2ptIdx.end(); ++it){
+			int imgIdx = it->first;
+			int pt2DIdx= it->second;
+			imgs.push_back(imgIdx);
+			pt2Ds.push_back(make_pair(img2pt2Ds[imgIdx][pt2DIdx].pt.x,img2pt2Ds[imgIdx][pt2DIdx].pt.y));
+		}
+		pt3D2Imgs.push_back(imgs);
+		pt3D2pt2Ds.push_back(pt2Ds);
+	}
+}
 void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 	vector<Point3f>	xyzs;
 	getXYZs(xyzs);

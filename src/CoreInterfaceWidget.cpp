@@ -375,6 +375,19 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	}
 	core-> ptCloud.getXYZs(xyzs);
 }
+void CoreInterfaceWidget::getPointNormals(	vector<cv::Point3f> &norms){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core-> ptCloud.getPointNormals(norms);
+}
 void CoreInterfaceWidget::getCameras(vector<Matx34d> &cams){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
@@ -449,10 +462,11 @@ void CoreInterfaceWidget::getBestOverlappingImgs(const int 					baseImgIdx,
 {
 	core->ptCloud.getBestOverlappingImgs(baseImgIdx, img2pt3Didxs);
 }
-void CoreInterfaceWidget::getImgsSeeingPoints(	const vector<int> 			&pt3DIdxs,
-												vector<vector<int> >		&pt2Imgs){
+void CoreInterfaceWidget::getMeasuresToPoints(	const vector<int> 						&pt3DIdxs,
+												vector<vector<int> >					&pt3D2Imgs,
+												vector<vector<pair<float,float> > > 	&pt3D2pt2Ds){
 
-	core->ptCloud.getImgsSeeingPoints(pt3DIdxs, pt2Imgs);
+	core->ptCloud.getMeasuresToPoints(pt3DIdxs, pt3D2Imgs, pt3D2pt2Ds);
 }
 void CoreInterfaceWidget::saveProject(const QString &fname){
 	if(!coreIsSet()){
