@@ -11,6 +11,7 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include "ProjectIO.h"
 #include "PtCloud.h"
 #include "PathReader.h"
@@ -31,7 +32,6 @@ ProjectIO::~ProjectIO() {
 void ProjectIO::writeProject(	const string			&fname,
 								const Mat				&camIntrinsicMat,
 								const Mat 				&camDistortionMat,
-								const int 				&lastAddedImgIdx,
 								const PtCloud 			&ptCloud)
 {
 	string filename = fname;
@@ -42,7 +42,6 @@ void ProjectIO::writeProject(	const string			&fname,
 
 		fs<<"camIntrinsicMat"<<camIntrinsicMat;
 		fs<<"camDistortionMat"<<camDistortionMat;
-		fs<<"lastAddedImgIdx"<<lastAddedImgIdx;
 		fs<<"imgRoot"<<ptCloud.imgRoot;
 		fs<<"imgs"<<"[";
 		for(int i=0; i<ptCloud.imgs.size(); i++){
@@ -229,7 +228,11 @@ void ProjectIO::writeProject(	const string			&fname,
 		double fx= f/imgW;
 		double fy= f/imgH;
 		myfile<<"CamParam: "<<imgW<<" "<<imgH<<" "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
-		myfile<<"HasNormal: 1"<<endl;
+		if(ptCloud.hasPointNormal)
+			myfile<<"HasNormal: 1"<<endl;
+		else
+			myfile<<"HasNormal: 0"<<endl;
+		myfile<<"ImgRoot: "<<ptCloud.imgRoot<<endl;
 		//save points
 		myfile<<"Points_start"<<endl;
 		for(int i=0; i<ptCloud.pt3Ds.size(); i++){
@@ -237,9 +240,10 @@ void ProjectIO::writeProject(	const string			&fname,
 			myfile<<i<<" ";
 			//point coords
 			myfile	<<setprecision(17)
-					<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" "
-					<<ptCloud.pt3Ds[i].norm.x<<" "<<ptCloud.pt3Ds[i].norm.y<<" "<<ptCloud.pt3Ds[i].norm.z
-					<<endl;
+					<<ptCloud.pt3Ds[i].pt.x<<" "<<ptCloud.pt3Ds[i].pt.y<<" "<<ptCloud.pt3Ds[i].pt.z<<" ";
+			if(ptCloud.hasPointNormal)
+				myfile <<ptCloud.pt3Ds[i].norm.x<<" "<<ptCloud.pt3Ds[i].norm.y<<" "<<ptCloud.pt3Ds[i].norm.z;
+			myfile 	<<endl;
 		}
 		myfile<<"Points_end"<<endl;
 
@@ -288,7 +292,6 @@ void ProjectIO::writeProject(	const string			&fname,
 void ProjectIO::readProject(	const string			&fname,				//including root
 								Mat						&camIntrinsicMat,
 								Mat 					&camDistortionMat,
-								int 					&lastAddedImgIdx,
 								PtCloud 				&ptCloud)
 {
 	cout<<fname<<endl;
@@ -296,11 +299,11 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 	//if yaml
 	if(Utils::endsWith(fname,".yaml")){
+		ptCloud.hasPointNormal = false;
 		FileStorage fs;
 		fs.open(fname, FileStorage::READ);
 		fs["camIntrinsicMat"]>>camIntrinsicMat;
 		fs["camDistortionMat"]>>camDistortionMat;
-		fs["lastAddedImgIdx"]>>lastAddedImgIdx;
 		fs["imgRoot"]>>ptCloud.imgRoot;
 
 		//images
@@ -386,7 +389,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		fs.release();
 	}else if(Utils::endsWith(fname,".nvm")){
 		cout<<"file format: nvm"<<endl;
-
+		ptCloud.hasPointNormal = false;
 		const int LINE_INTRINSICS	= 1;
 		const int LINE_IMGROOT		= 2;
 		const int LINE_IMGCNT		= 3;
@@ -521,6 +524,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 	}else if(Utils::endsWith(fname,".patch")){
 		cout<<"file format: patch"<<endl;
+		ptCloud.hasPointNormal = true;
 		ifstream infile(fname.c_str());
 		string line;
 		bool readIntrinsics = false;
@@ -614,7 +618,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						Matx34d cm(	r00,r01,r02,t0,
 									r10,r11,r12,t1,
 									r20,r21,r22,t2);
-						ptCloud.imgs.push_back(imgName);
+						ptCloud.imgs.push_back(originalImgName);//imgName);
 						ptCloud.camMats.push_back(cm);
 						ptCloud.img2camMat[imgIdx] = imgIdx;
 						ptCloud.camMat2img[imgIdx] = imgIdx;
@@ -707,10 +711,123 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 		}
 		cout<<ptCloud.camMats.size()<<"/"<<ptCloud.imgs.size()<<" images used"<<endl;
+	}else if(Utils::endsWith(fname,".tiny")){
+		cout<<"file format: patch"<<endl;
+		ifstream infile(fname.c_str());
+		string line;
+		while (getline(infile, line)){
+			if(line.find("CamParam:")!=line.npos){
+				istringstream iss(line);
+				string nouse;
+				int imgW,imgH;
+				double fx,fy,ppx,ppy,r;
+				iss>>nouse>>imgW>>imgH>>fx>>fy>>ppx>>ppy>>r;
+				double camMatArr[9] 		= { fx*imgW, 	0.0, 		ppx*imgW,
+												0.0, 		fy*imgH, 	ppy*imgH,
+												0.0,		0.0,		1.0 };
+				double distortCoeffArr[5] 	= { 0, 0, 0, 0, 0 };	//assume no distortion
+				Mat CM(3, 3, CV_64F, camMatArr);
+				Mat DM(1, 5, CV_64F, distortCoeffArr);
+				camIntrinsicMat = CM.clone();	//must copy the data else they will be destroyed after constructor
+				camDistortionMat= DM.clone();	//must copy the data else they will be destroyed after constructor
+				cout<<camIntrinsicMat<<endl;
+				cout<<camDistortionMat<<endl;
+
+			}else if(line.find("ImgRoot:")!=line.npos){
+				istringstream iss(line);
+				string nouse;
+				iss>>nouse>>ptCloud.imgRoot;
+			}else if(line.find("HasNormal:")!=line.npos){
+				istringstream iss(line);
+				string nouse;
+				iss>>nouse>>ptCloud.hasPointNormal;
+			}else if(line == "Points_start"){
+				string line2;
+				getline(infile, line2);
+				while(line2!="Points_end"){
+					istringstream iss(line2);
+
+					//get 3d coordinates
+					int id;
+					double x,y,z;
+					iss>>id>>x>>y>>z;
+					Pt3D pt3D;
+					pt3D.pt = Point3f(x,y,z);
+
+					//get point normal
+					if(ptCloud.hasPointNormal){
+						double nx, ny, nz;
+						iss>>nx>>ny>>nz;
+						pt3D.norm = Point3f(nx,ny,nz);	//by right this should already been normalized
+					}
+
+					ptCloud.pt3Ds.push_back(pt3D);
+					getline(infile, line2);
+				}
+				cout<<"total "<<ptCloud.pt3Ds.size()<<" points read"<<endl;
+
+			}else if(line == "Cams_start"){
+				string line2;
+				getline(infile, line2);
+				while(line2!="Cams_end"){
+					istringstream iss(line2);
+					int id, measureCnt;
+					double lat, lon;
+					double r[3];
+					double t[3];
+					string imgName;
+					iss>>id>>lat>>lon>>imgName>>r[0]>>r[1]>>r[2]>>t[0]>>t[1]>>t[2]>>measureCnt;
+
+					//cam mat
+					Mat rvec = Mat(3,1,CV_64F,r);
+					Mat R;
+					Rodrigues(rvec, R);
+					Matx34d camMat = Matx34d(	R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t[0],
+												R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), t[1],
+												R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), t[2]);
+
+					int imgIdx = ptCloud.imgs.size();
+					int camIdx = ptCloud.camMats.size();
+
+					//add image, camMat
+					ptCloud.imgs.push_back(imgName);
+					ptCloud.camMats.push_back(camMat);
+
+					//add data associations
+					ptCloud.img2camMat[imgIdx] = camIdx;
+					ptCloud.camMat2img[camIdx] = imgIdx;
+
+					//add GPS
+					ptCloud.img2GPS[imgIdx] = make_pair(lat,lon);
+
+					//add measures
+					ptCloud.img2pt2Ds[imgIdx] = vector<Pt2D>();
+					while(measureCnt-->0){
+						int pt3DIdx;
+						float x,y;
+						iss>>pt3DIdx>>x>>y;
+						Pt2D pt2D;
+						pt2D.pt = Point2f(x, y);
+						pt2D.img_idx = imgIdx;
+						pt2D.pt3D_idx = pt3DIdx;
+						pt2D.dec = Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
+						ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
+						assert(ptCloud.pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx) == ptCloud.pt3Ds[pt3DIdx].img2ptIdx.end());
+						ptCloud.pt3Ds[pt3DIdx].img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
+					}
+
+					getline(infile, line2);
+				}
+				cout<<"total "<<ptCloud.imgs.size()<<" images & cameras read"<<endl;
+			}
+		}
 	}
-	for(int i=0; i<ptCloud.camMats.size(); i++){
-		int imgIdx = ptCloud.camMat2img[i];
-		ptCloud.img2GPS[imgIdx] = make_pair(0,0);	//dummy
+
+	if(!Utils::endsWith(fname,".tiny")){
+		for(int i=0; i<ptCloud.camMats.size(); i++){
+			int imgIdx = ptCloud.camMat2img[i];
+			ptCloud.img2GPS[imgIdx] = make_pair(0,0);	//dummy
+		}
 	}
 
 }

@@ -28,8 +28,6 @@ SFMPipeline::SFMPipeline(	const string			&root,
 							const vector<string> 	&paths) {
 	ptCloud.imgRoot = root;
 	ptCloud.imgs 	= paths;
-	done 			= false;
-	lastAddedImgIdx = -1;
 
 	/*
 	double camMatArr[9] = { 499.09418996590045, 0.0, 				329.97466633492741,
@@ -101,11 +99,17 @@ void SFMPipeline::getNextPair(	int &imgIdx1, 	//from
 	imgIdx1 = -1;
 	imgIdx2 = -1;
 
-	if(done){
+	int lastAddedImgIdx 	= -2;
+	if(!ptCloud.camMats.empty()){
+		int lastCamIdx 		= ptCloud.camMats.size()-1;
+		lastAddedImgIdx 	= ptCloud.camMat2img[lastCamIdx];
+		cout<<"last added img idx = "<<lastAddedImgIdx<<endl;
+	}
+	//XXX:warning, when comparing a negative number to unsigned number, must convert unsigned to signed
+	if(lastAddedImgIdx>= ((int) (ptCloud.imgs.size())-1)){
+		cout<<"No more images to add"<<endl;
 		return;
 	}
-
-	cout<<"last added img idx = "<<lastAddedImgIdx<<endl;
 
 	vector<KeyPoint> 	kpts1,	kpts2;
 	vector<Point2f> 	pts1,	pts2;
@@ -444,11 +448,6 @@ void SFMPipeline::reconstructBasePair(	const int				imgIdx1,	//this will have id
 	cout<<"["<<imgIdx1<<"]"<<ptCloud.imgs[imgIdx1]<<" & "<<"["<<imgIdx2<<"]"<<ptCloud.imgs[imgIdx2];
 	cout<<"\t cloud size = "<<cloudSize<<" ("<<cloudSize<<" new)"<<endl;
 
-	lastAddedImgIdx = imgIdx2;
-	if(lastAddedImgIdx>=ptCloud.imgs.size()-1){
-		done = true;
-	}
-
 }
 
 void SFMPipeline:: reconstructNextPair(const int				imgIdx1,	//this must be a new image
@@ -566,11 +565,6 @@ void SFMPipeline:: reconstructNextPair(const int				imgIdx1,	//this must be a ne
 
 	cout<<"["<<imgIdx1<<"]"<<ptCloud.imgs[imgIdx1]<<" & "<<"["<<imgIdx2<<"]"<<ptCloud.imgs[imgIdx2];
 	cout<<"\t cloud size = "<<cloudSizeNew<<" ("<<(cloudSizeNew-cloudSizeOld)<<" new)"<<endl;
-
-	lastAddedImgIdx = imgIdx1;
-	if(lastAddedImgIdx>=ptCloud.imgs.size()-1){
-		done = true;
-	}
 }
 
 void SFMPipeline:: addNewMeasures(	const int				imgIdx1,	//this is the newly used image (tryImg)
@@ -1072,12 +1066,12 @@ void SFMPipeline::printDebug(){
 
 void SFMPipeline::saveProject(			const string 				&fname)
 {
-	ProjectIO::writeProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+	ProjectIO::writeProject(fname,camMat,distortionMat,ptCloud);
 }
 
 void SFMPipeline::loadProject(			const string				&fname)
 {
-	ProjectIO::readProject(fname,camMat,distortionMat,lastAddedImgIdx,ptCloud);
+	ProjectIO::readProject(fname,camMat,distortionMat,ptCloud);
 }
 
 void SFMPipeline::loadGPS(				const std::string			&fname)

@@ -122,8 +122,13 @@ void MatchPanel::handleDelete(){
 	matchView ->deleteSelected();
 }
 
-void MatchPanel::handleImageUsed(std::vector<int> &usedImgIdxs){
-
+void MatchPanel::handleImagesUsed(std::vector<int> &usedImgIdxs){
+	for(int i=0; i<imgList1->count(); i++){
+		imgList1->setItemData(i, Qt::black, Qt::TextColorRole);
+	}
+	for(int i=0; i<imgList2->count(); i++){
+		imgList2->setItemData(i, Qt::black, Qt::TextColorRole);
+	}
 	for(int i=0; i<usedImgIdxs.size(); i++){
 		imgList1->setItemData(usedImgIdxs[i]+1, Qt::yellow, Qt::TextColorRole);
 		imgList2->setItemData(usedImgIdxs[i]+1, Qt::yellow, Qt::TextColorRole);
@@ -132,8 +137,8 @@ void MatchPanel::handleImageUsed(std::vector<int> &usedImgIdxs){
 }
 
 void MatchPanel::getSelectedImages(int &idx1, int &idx2){
-	idx1 = imgList1->currentIndex();
-	idx2 = imgList2->currentIndex();
+	idx1 = imgList1->currentIndex()-1;
+	idx2 = imgList2->currentIndex()-1;
 }
 
 void MatchPanel::getMask(QList<bool> &mask){

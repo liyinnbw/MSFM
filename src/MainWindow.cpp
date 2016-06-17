@@ -127,6 +127,10 @@ void MainWindow::createActions()
 	removeBadAction->setStatusTip(tr("Remove 3D points with high reprojection error"));
 	connect(removeBadAction, SIGNAL(triggered()), this, SLOT(handleRemoveBad()));
 
+	removeCameraAction = new QAction(tr("&RemoveCamera"),this);
+	removeCameraAction->setStatusTip(tr("Remove image selected in matchpanel if the image is used"));
+	connect(removeCameraAction, SIGNAL(triggered()), this, SLOT(handleDeleteCamera()));
+
 	denseAction = new QAction(tr("&DenseReconstruct"),this);
 	denseAction->setStatusTip(tr("Dense reconstruction using reovered camera poses"));
 	connect(denseAction, SIGNAL(triggered()), this, SLOT(handleDense()));
@@ -174,6 +178,7 @@ void MainWindow::createToolBars()
     sfmToolBar->addAction(reconstructAction);
 	sfmToolBar->addAction(bundleAdjustmentAction);
 	sfmToolBar->addAction(removeBadAction);
+	sfmToolBar->addAction(removeCameraAction);
 	sfmToolBar->addAction(denseAction);
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
@@ -214,7 +219,7 @@ void MainWindow::handleFeatureMatch(){
 
 	int idx1, idx2;
 	matchPanel->getSelectedImages(idx1, idx2);
-	if(idx1==0 || idx2==0){
+	if(idx1<0 || idx2<0){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","1st image or 2nd image cannot be empty!");
 		return;
@@ -226,7 +231,7 @@ void MainWindow::handleFeatureMatch(){
 	}
 
 	statusBar()->showMessage(tr("matching features..."));
-	coreInterface->matchImages(idx1-1, idx2-1);
+	coreInterface->matchImages(idx1, idx2);
 
 }
 void MainWindow::handleReconstruct(){
@@ -241,7 +246,6 @@ void MainWindow::handleBundleAdjustment(){
 }
 void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	statusBar()->showMessage(tr("deleting points..."));
-	displayPointCloud(false);
 	coreInterface->deletePointIdx(idxs);
 }
 void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
@@ -296,6 +300,16 @@ void MainWindow::handleCheckMatch(){
 void MainWindow::handleRemoveBad(){
 	statusBar()->showMessage(tr("removing bad points..."));
 	coreInterface->removeBad();
+}
+
+void MainWindow::handleDeleteCamera(){
+	statusBar()->showMessage(tr("deleting selected camera(s)..."));
+	int imgIdx1, imgIdx2;
+	matchPanel->getSelectedImages(imgIdx1, imgIdx2);
+	vector<int> imgIdxs;
+	imgIdxs.push_back(imgIdx1);
+	imgIdxs.push_back(imgIdx2);
+	coreInterface->deleteCameraByImageIdxs(imgIdxs);
 }
 void MainWindow::handleDense(){
 	statusBar()->showMessage(tr("dense reconstructing points..."));
@@ -406,10 +420,11 @@ void MainWindow::displayPointCloud(bool resetView){
 	cloudViewer->loadCloudAndCamera(xyzs, norms, cams, resetView);
 	statusBar()->showMessage(tr("cloud loaded"));
 	
-	//also update imgList2 to include only used images
+	//also update match panel image lists to highlight images
 	vector<int>	useImgIdxs;
 	coreInterface->getUsedImageIdxs(useImgIdxs);
-	matchPanel->handleImageUsed(useImgIdxs);
+	matchPanel->handleImagesUsed(useImgIdxs);
+	statusBar()->showMessage(tr("image list updated"));
 
 }
 void MainWindow::handleNormalRenderToggle(){
@@ -448,7 +463,7 @@ void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("Open Project"), ".",
-		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)"));
+		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)\nTINY files (*.tiny)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
     	coreInterface -> loadProject(fileName);

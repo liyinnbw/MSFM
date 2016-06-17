@@ -335,6 +335,27 @@ void CoreInterfaceWidget::removeBad(){
 	core->pruneHighReprojectionErrorPoints();
 	emit pointCloudReady(true);
 }
+
+void CoreInterfaceWidget::deleteCameraByImageIdxs(const std::vector<int> &imgIdxs){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	for(int i=0; i<imgIdxs.size(); i++){
+		if(core->ptCloud.imageIsUsed(imgIdxs[i])){
+			int camIdx = core->ptCloud.img2camMat[imgIdxs[i]];
+			core->ptCloud.removeCamera(camIdx);
+		}
+	}
+
+	emit pointCloudReady(true);
+}
 void CoreInterfaceWidget::denseReconstruct(){
 	if(!coreIsSet()){
 		QMessageBox messageBox;

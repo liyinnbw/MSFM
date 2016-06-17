@@ -124,11 +124,18 @@ public:
 
 	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
 
+	void transformPoints(			const cv::Mat 				&transfMat,
+									std::vector<cv::Point3f>	&xyzs);
+
 	bool getImageIdxByCameraIdx(const int camIdx, int &imgIdx) const;
 
 	bool getImageGPS(const int imgIdx, double &lat, double &lon) const;
 
 	void removeCamera(const int camIdx);
+
+	void remove3DsHaveNoMeasurements();
+
+	bool hasPointNormal;
 
 	//data
 	std::string 						imgRoot;
@@ -140,6 +147,7 @@ public:
 	//data correspondences
 	std::map<int, int>					img2camMat;	//used image idx to corresponding camera mat idx
 	std::map<int, int>					camMat2img;	//camera mat idx to corresponding used image idx
+
 };
 
 #endif /* PTCLOUD_H_ */

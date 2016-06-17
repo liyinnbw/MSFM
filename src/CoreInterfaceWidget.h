@@ -102,6 +102,7 @@ public:
 	void nextPair();
 	void checkMatch(const QList<bool> &);
 	void removeBad();
+	void deleteCameraByImageIdxs(const std::vector<int> &imgIdxs);
 	void denseReconstruct();
 	void computeKeyFrame(const int imgIdx, KeyFrame &kf);
 	void getOverlappingImgs(	const int 								baseImgIdx,

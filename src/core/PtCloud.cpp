@@ -12,7 +12,7 @@ using namespace std;
 using namespace cv;
 PtCloud::PtCloud() {
 	// TODO Auto-generated constructor stub
-
+	clear();
 }
 
 PtCloud::~PtCloud() {
@@ -20,6 +20,7 @@ PtCloud::~PtCloud() {
 }
 void PtCloud::clear(){
 	imgRoot = "";
+	hasPointNormal = false;
 	imgs.clear();
 	pt3Ds.clear();
 	img2pt2Ds.clear();
@@ -603,9 +604,9 @@ void PtCloud::getMeasuresToPoints(		const std::vector<int> 					&pt3DIdxs,
 		pt3D2pt2Ds.push_back(pt2Ds);
 	}
 }
-void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
-	vector<Point3f>	xyzs;
-	getXYZs(xyzs);
+void PtCloud::transformPoints(		const Mat 			&transfMat,
+									vector<Point3f>		&xyzs)
+{
 	Mat pts4DMat; //4 channels type 29
 	convertPointsToHomogeneous(xyzs, pts4DMat);
 	pts4DMat = pts4DMat.reshape(1);		//convert to 1 channel, type 5, efficiency O(1)
@@ -616,22 +617,55 @@ void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 	pts4DMat = pts4DMat.t();
 	pts4DMat = pts4DMat.reshape(3);		//convert to 3 channels so that you can copy to vector of points
 	pts4DMat.copyTo(xyzs);
-	cout<<"xyzs size = "<<xyzs.size()<<endl;
+}
+
+void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
+
+
+	vector<Point3f>	xyzs;
+	getXYZs(xyzs);
+	vector<Point3f>	normals;
+	getPointNormals(normals);
+	assert(normals.size() == xyzs.size() && xyzs.size() == pt3Ds.size());
+	//get position of the normal end
+	for(int i=0; i<normals.size(); i++){
+		normals[i] = normals[i]+xyzs[i];
+	}
+
+	//transform 3d points
+	transformPoints(transfMat, xyzs);
 	assert(xyzs.size() == pt3Ds.size());
 	for(int i=0; i<xyzs.size(); i++){
 		pt3Ds[i].pt = xyzs[i];
 	}
+
+
+	if(hasPointNormal){
+		//transform normals
+		transformPoints(transfMat, normals);
+		assert(normals.size() == pt3Ds.size());
+		for(int i=0; i<normals.size(); i++){
+			pt3Ds[i].norm = normals[i]-pt3Ds[i].pt;
+
+			//normalize the normal
+			double mag = sqrt(pt3Ds[i].norm.x*pt3Ds[i].norm.x+pt3Ds[i].norm.y*pt3Ds[i].norm.y+pt3Ds[i].norm.z*pt3Ds[i].norm.z);
+			pt3Ds[i].norm = pt3Ds[i].norm/mag;
+		}
+	}
+
+	//transform camMats
+	Matx44d homoTransfMat(	transfMat.at<double>(0,0),transfMat.at<double>(0,1),transfMat.at<double>(0,2),transfMat.at<double>(0,3),
+							transfMat.at<double>(1,0),transfMat.at<double>(1,1),transfMat.at<double>(1,2),transfMat.at<double>(1,3),
+							transfMat.at<double>(2,0),transfMat.at<double>(2,1),transfMat.at<double>(2,2),transfMat.at<double>(2,3),
+							0,0,0,1);
+	Mat homoTransfMatInv = Mat(homoTransfMat).inv();
 	for(int i=0; i<camMats.size(); i++){
 		Matx44d homoCamMat(	camMats[i](0,0),camMats[i](0,1),camMats[i](0,2),camMats[i](0,3),
 							camMats[i](1,0),camMats[i](1,1),camMats[i](1,2),camMats[i](1,3),
 							camMats[i](2,0),camMats[i](2,1),camMats[i](2,2),camMats[i](2,3),
 							0,0,0,1);
-		Matx44d homoTransfMat(	transfMat.at<double>(0,0),transfMat.at<double>(0,1),transfMat.at<double>(0,2),transfMat.at<double>(0,3),
-								transfMat.at<double>(1,0),transfMat.at<double>(1,1),transfMat.at<double>(1,2),transfMat.at<double>(1,3),
-								transfMat.at<double>(2,0),transfMat.at<double>(2,1),transfMat.at<double>(2,2),transfMat.at<double>(2,3),
-								0,0,0,1);
 
-		Mat newRMat = (Mat(homoCamMat))*(Mat(homoTransfMat).inv());
+		Mat newRMat = (Mat(homoCamMat))*homoTransfMatInv;
 
 		Matx34d newCamMat(	newRMat.at<double>(0,0),newRMat.at<double>(0,1),newRMat.at<double>(0,2),newRMat.at<double>(0,3),
 							newRMat.at<double>(1,0),newRMat.at<double>(1,1),newRMat.at<double>(1,2),newRMat.at<double>(1,3),
@@ -668,18 +702,22 @@ void PtCloud::removeCamera(const int camIdx){
 	assert(camIdx>=0 && camIdx<camMats.size());
 	assert(camMat2img.find(camIdx)!=camMat2img.end());
 	int imgIdx = camMat2img[camIdx];
+	cout<<"removing img["<<imgIdx<<"]"<<imgs[imgIdx]<<endl;
 	//remove measurements
 	if(img2pt2Ds.find(imgIdx) != img2pt2Ds.end()){
 		vector<Pt2D> &pt2Ds = img2pt2Ds[imgIdx];
 		for(int i=0; i<pt2Ds.size(); i++){
 			int pt3DIdx = pt2Ds[i].pt3D_idx;
+			if(pt3DIdx<0) continue;
 			assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)!=pt3Ds[pt3DIdx].img2ptIdx.end());
 			pt3Ds[pt3DIdx].img2ptIdx.erase(imgIdx);
 			assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)==pt3Ds[pt3DIdx].img2ptIdx.end());
-			//TODO: remove 3d points with measuremnt = 0
 		}
 		img2pt2Ds.erase(imgIdx);
 	}
+
+	//remove 3d points with measuremnt = 0
+	remove3DsHaveNoMeasurements();
 
 	//remove camera and affected data structures
 	camMats.erase(camMats.begin() + camIdx);
@@ -691,4 +729,14 @@ void PtCloud::removeCamera(const int camIdx){
 		}
 		camMat2img[it->second] = it->first;
 	}
+}
+
+void PtCloud::remove3DsHaveNoMeasurements(){
+	vector<bool> removeMask(pt3Ds.size(),false);
+	for(int i=0; i<pt3Ds.size(); i++){
+		if(pt3Ds[i].img2ptIdx.empty()){
+			removeMask[i] = true;
+		}
+	}
+	remove3Ds(removeMask);
 }

@@ -151,16 +151,12 @@ public:
 
 	void loadGPS(				const std::string				&fname);
 
-	bool isDone(){return done;}
 	double getCamFocal();
 	cv::Point2d getCamPrinciple();
 	int getCloudSize(){return ptCloud.pt3Ds.size();}
-	int getLastAddedImgIdx(){return lastAddedImgIdx;}
 
 	PtCloud ptCloud; //contains more than just 3d cloud, see declaration
-	int lastAddedImgIdx;
 
-	bool done;
 	double camFocal;
 	cv::Point2d camPrinciple;
 	cv::Mat camMat;

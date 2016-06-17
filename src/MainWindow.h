@@ -49,6 +49,7 @@ private slots:
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
 	void handleNormalRenderToggle();
+	void handleDeleteCamera();
 
 private:
     void createWidgets();
@@ -71,6 +72,7 @@ private:
 	QAction 				*saveAction;
 	QAction 				*denseAction;
 	QAction 				*renderNormalToggleAction;
+	QAction 				*removeCameraAction;
 	//QAction					*keyframeAction;
 	
 	QToolBar 				*fileToolBar;

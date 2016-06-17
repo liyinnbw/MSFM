@@ -22,13 +22,11 @@ public:
 	static void writeProject(	const std::string			&fname,
 								const cv::Mat				&camIntrinsicMat,
 								const cv::Mat 				&camDistortionMat,
-								const int 					&lastAddedImgIdx,
 								const PtCloud 				&ptCloud);
 
 	static void readProject(	const std::string			&fname,			//including root
 								cv::Mat						&camIntrinsicMat,
 								cv::Mat 					&camDistortionMat,
-								int 						&lastAddedImgIdx,
 								PtCloud 					&ptCloud);
 
 	static void readGPS(		const std::string			&fname,
