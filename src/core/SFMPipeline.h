@@ -139,6 +139,8 @@ public:
 
 	void bundleAdjustment();
 
+	void keepMinSpanCameras();
+
 	void writePLY(				const std::string 				&root,
 								const std::string				&fname);
 

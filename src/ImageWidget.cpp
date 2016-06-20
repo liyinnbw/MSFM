@@ -32,6 +32,7 @@ void ImageWidget:: reset(){
 	imagePath = "";
 	markToHighlight = -1;
 	marks.clear();
+	showSelectWin = false;
 	
 }
 QSize ImageWidget:: sizeHint() const{
@@ -119,12 +120,23 @@ void ImageWidget::drawMarks(){
 		painter.drawEllipse(mark*zoom, 3,3);
 	}
 }
-
+void ImageWidget:: drawSelectionWindow(){
+	QPainter painter(this);
+	QColor color(255,0,0);
+	QPen pen(color, 3, Qt::SolidLine);
+	painter.setPen(pen);
+	QRect selectionRect = pointsToRect(selectWinStart,selectWinEnd);
+	painter.drawRect(selectionRect);
+	emit selectionWindowChanged(selectionRect);
+}
 void ImageWidget:: paintEvent(QPaintEvent *event){
 
 	QPainter painter(this);
 	painter.drawPixmap(0,0,image.width()*zoom,image.height()*zoom,pixmap);
 	drawMarks();
+	if(showSelectWin){
+		drawSelectionWindow();
+	}
 }
 void ImageWidget:: wheelEvent(QWheelEvent *event){
 
@@ -137,6 +149,7 @@ void ImageWidget:: wheelEvent(QWheelEvent *event){
 //update event is handled in setSelected called by upper-level widget
 void ImageWidget::mouseMoveEvent(QMouseEvent *event){
 	QPointF p = event->posF();
+	selectWinEnd  = p;
 	float 	minDist;
 	int 	minIdx;
 	distToNearestMark(p, minDist, minIdx);
@@ -145,8 +158,19 @@ void ImageWidget::mouseMoveEvent(QMouseEvent *event){
 	}else{
 		emit markSelected(-1);
 	}
+	update();
 }
-
+void ImageWidget::mousePressEvent(QMouseEvent *event){
+	selectWinStart 	= event->posF();
+	selectWinEnd 	= selectWinStart;
+	showSelectWin = true;
+	update();
+}
+void ImageWidget::mouseReleaseEvent(QMouseEvent *event){
+	selectWinEnd  = event->posF();
+	showSelectWin = false;
+	update();
+}
 void ImageWidget::keyPressEvent (QKeyEvent *event){
 
 	switch (event -> key()){
@@ -171,6 +195,19 @@ void  ImageWidget::distToNearestMark(const QPointF &pos, float &minDist, int &mi
 			minDist = dist;
 		}
 	}
+}
+QRect  ImageWidget::pointsToRect(const QPointF &p1, const QPointF &p2){
+	QPointF pdiff = p2-p1;
+	if(pdiff.x()>=0 && pdiff.y()>=0){
+		return QRect(p1.x(),p1.y(),pdiff.x(),pdiff.y());
+	}else if(pdiff.x()<0 && pdiff.y()<0){
+		return QRect(p2.x(),p2.y(),-pdiff.x(),-pdiff.y());
+	}else if(pdiff.x()<0){
+		return QRect(p2.x(),p1.y(),-pdiff.x(),pdiff.y());
+	}else{
+		return QRect(p1.x(),p2.y(),pdiff.x(),-pdiff.y());
+	}
+
 }
 void ImageWidget::deleteSelected(){
 	if(getMarkToHightlight()>=0){

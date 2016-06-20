@@ -356,7 +356,8 @@ void CoreInterfaceWidget::deleteCameraByImageIdxs(const std::vector<int> &imgIdx
 
 	emit pointCloudReady(true);
 }
-void CoreInterfaceWidget::denseReconstruct(){
+
+void CoreInterfaceWidget::deleteMeasures(const QList<QPair<int,int> > &measures){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
@@ -367,6 +368,34 @@ void CoreInterfaceWidget::denseReconstruct(){
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
+	vector<pair<int,int> > ms;
+	ms.reserve(measures.size());
+	for(int i=0; i<measures.size(); i++){
+		ms.push_back(make_pair(measures[i].first, measures[i].second));
+	}
+	core->ptCloud.removeMeasures(ms);
+	core->ptCloud.remove3DsHaveNoMeasurements();
+
+	emit pointCloudReady(false);
+}
+
+void CoreInterfaceWidget::keepMinSpanCameras(){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core->keepMinSpanCameras();
+	emit pointCloudReady(true);
+}
+void CoreInterfaceWidget::denseReconstruct(){
+	QMessageBox messageBox;
+	messageBox.information(0,"Info","function not supported yet");
 }
 
 void CoreInterfaceWidget::computeKeyFrame(const int imgIdx, KeyFrame &kf){
@@ -484,10 +513,19 @@ void CoreInterfaceWidget::getBestOverlappingImgs(const int 					baseImgIdx,
 	core->ptCloud.getBestOverlappingImgs(baseImgIdx, img2pt3Didxs);
 }
 void CoreInterfaceWidget::getMeasuresToPoints(	const vector<int> 						&pt3DIdxs,
-												vector<vector<int> >					&pt3D2Imgs,
-												vector<vector<pair<float,float> > > 	&pt3D2pt2Ds){
-
-	core->ptCloud.getMeasuresToPoints(pt3DIdxs, pt3D2Imgs, pt3D2pt2Ds);
+												vector<vector<pair<int,int> > >			&pt3D2Measures,
+												vector<vector<QPointF> > 				&pt3D2pt2Ds){
+	pt3D2pt2Ds.clear();
+	vector<vector<Point2f> > pt3D2pt2Ds_cv;
+	core->ptCloud.getMeasuresToPoints(pt3DIdxs, pt3D2Measures, pt3D2pt2Ds_cv);
+	for(int i=0; i<pt3D2pt2Ds_cv.size(); i++){
+		vector<QPointF> pt2Ds;
+		for(int j=0; j<pt3D2pt2Ds_cv[i].size(); j++){
+			QPointF p = QPointF(pt3D2pt2Ds_cv[i][j].x,pt3D2pt2Ds_cv[i][j].y);
+			pt2Ds.push_back(p);
+		}
+		pt3D2pt2Ds.push_back(pt2Ds);
+	}
 }
 void CoreInterfaceWidget::saveProject(const QString &fname){
 	if(!coreIsSet()){

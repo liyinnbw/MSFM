@@ -41,6 +41,7 @@ private slots:
 	void handleNextPair();
 	void handleBundleAdjustment();
 	void handleDeletePointIdx(const QList<int> idxs);
+	void handleDeleteMeasures(const QList<QPair<int,int> > &measures);
 	void handleShowCamerasSeeingPoints(const QList<int> idxs);
 	void handleCheckMatch();
 	void handleRemoveBad();
@@ -50,6 +51,7 @@ private slots:
 	void handleLineCommand();
 	void handleNormalRenderToggle();
 	void handleDeleteCamera();
+	void handleMinSpanCamera();
 
 private:
     void createWidgets();
@@ -73,6 +75,7 @@ private:
 	QAction 				*denseAction;
 	QAction 				*renderNormalToggleAction;
 	QAction 				*removeCameraAction;
+	QAction 				*minSpanCamerasAction;
 	//QAction					*keyframeAction;
 	
 	QToolBar 				*fileToolBar;

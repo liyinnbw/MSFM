@@ -654,7 +654,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 				//get measurements
 				getline(infile, line);
-				istringstream iss3(line);
+				/*istringstream iss3(line);
 				while(numMeasures-->0){
 					int imgIdx;
 					double x_2d, y_2d;
@@ -667,7 +667,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 					ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
 					assert(pt3D.img2ptIdx.find(imgIdx) == pt3D.img2ptIdx.end());
 					pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
-				}
+				}*/
 
 				//get number of visible measurements
 				getline(infile, line);
@@ -829,6 +829,8 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 			ptCloud.img2GPS[imgIdx] = make_pair(0,0);	//dummy
 		}
 	}
+
+	ptCloud.remove3DsHaveNoMeasurements();
 
 }
 

@@ -12,6 +12,14 @@
 
 #include "ImageWidget.h"
 
+
+struct TileMark{
+	int imgIdx;
+	int pt2DIdx;
+	QPointF pt;
+	bool selected;
+};
+
 class QImage;
 class QPointF;
 class QPixmap;
@@ -23,12 +31,14 @@ class ImageTileWidget: public ImageWidget
 	Q_PROPERTY(float zoomFactor READ zoomFactor WRITE setZoomFactor)
 
 public slots:
-	void setMarks(const QList<QList<QPointF> >&);
+	void setMarks(const QList<QList<TileMark> >&);
 	void setImages(const QString &root, const QList<QString> &list);
+	void setSelected(const QRect &);
 	
 
 public:
 	ImageTileWidget(QWidget *parent = 0);
+	void getSelectedMarks(QList<TileMark> &sMarks);
 
 protected:
 	virtual void drawMarks();
@@ -36,7 +46,7 @@ protected:
 
 private:
 	QList<QImage> 			images;
-	QList<QList<QPointF> > 	marks;
+	QList<QList<TileMark> > marks;
 	int						rows;
 	int 					cols;
 	int						imgW;

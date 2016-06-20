@@ -581,26 +581,26 @@ void PtCloud::getImgsSeeingPoints(		const std::vector<int> 					&pt3DIdxs,
 	}
 }
 void PtCloud::getMeasuresToPoints(		const std::vector<int> 					&pt3DIdxs,
-										std::vector<std::vector<int> >			&pt3D2Imgs,
-										vector<vector<pair<float,float> > >		&pt3D2pt2Ds)
+										vector<vector<pair<int,int> > >			&pt3D2Measures,
+										vector<vector<Point2f> >				&pt3D2pt2Ds)
 {
-	pt3D2Imgs.clear();
+	pt3D2Measures.clear();
 	pt3D2pt2Ds.clear();
-	pt3D2Imgs.reserve(pt3DIdxs.size());
+	pt3D2Measures.reserve(pt3DIdxs.size());
 	pt3D2pt2Ds.reserve(pt3DIdxs.size());
 	for(int i=0; i<pt3DIdxs.size(); i++){
-		int pt3DIdx = pt3DIdxs[i];
-		vector<int> imgs;
-		vector<pair<float,float> > pt2Ds;
-		imgs.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
+		int pt3DIdx = 			pt3DIdxs[i];
+		vector<pair<int,int> >	measures;
+		vector<Point2f> 		pt2Ds;
+		measures.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
 		pt2Ds.reserve(pt3Ds[pt3DIdx].img2ptIdx.size());
 		for(map<int, int>::iterator it=pt3Ds[pt3DIdx].img2ptIdx.begin(); it!=pt3Ds[pt3DIdx].img2ptIdx.end(); ++it){
 			int imgIdx = it->first;
 			int pt2DIdx= it->second;
-			imgs.push_back(imgIdx);
-			pt2Ds.push_back(make_pair(img2pt2Ds[imgIdx][pt2DIdx].pt.x,img2pt2Ds[imgIdx][pt2DIdx].pt.y));
+			measures.push_back(make_pair(imgIdx,pt2DIdx));
+			pt2Ds.push_back(img2pt2Ds[imgIdx][pt2DIdx].pt);
 		}
-		pt3D2Imgs.push_back(imgs);
+		pt3D2Measures.push_back(measures);
 		pt3D2pt2Ds.push_back(pt2Ds);
 	}
 }
@@ -698,6 +698,16 @@ bool PtCloud::getImageGPS(const int imgIdx, double &lat, double &lon) const{
 	}
 }
 
+void PtCloud::removeCameras(const set<int> &camIdxs){
+	int removedCnt = 0;
+	for(set<int>::iterator it = camIdxs.begin(); it!=camIdxs.end(); ++it){
+		removeCamera((*it)-removedCnt);
+		removedCnt++;
+	}
+	remove3DsHaveNoMeasurements();
+}
+
+//XXX: this function does not remove orphan points, call remove3dsHaveNoMeasurements later.
 void PtCloud::removeCamera(const int camIdx){
 	assert(camIdx>=0 && camIdx<camMats.size());
 	assert(camMat2img.find(camIdx)!=camMat2img.end());
@@ -716,8 +726,7 @@ void PtCloud::removeCamera(const int camIdx){
 		img2pt2Ds.erase(imgIdx);
 	}
 
-	//remove 3d points with measuremnt = 0
-	remove3DsHaveNoMeasurements();
+
 
 	//remove camera and affected data structures
 	camMats.erase(camMats.begin() + camIdx);
@@ -739,4 +748,17 @@ void PtCloud::remove3DsHaveNoMeasurements(){
 		}
 	}
 	remove3Ds(removeMask);
+}
+void PtCloud::removeMeasures(const std::vector<std::pair<int,int> > &measures){
+	for(int i=0; i<measures.size(); i++){
+		int imgIdx = measures[i].first;
+		int pt2DIdx= measures[i].second;
+		assert(imageIsUsed(imgIdx));
+		assert(pt2DIdx>=0 && pt2DIdx<img2pt2Ds[imgIdx].size());
+		int pt3DIdx= img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx;
+		assert(pt3DIdx!=-1);
+		assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)!=pt3Ds[pt3DIdx].img2ptIdx.end());
+		img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx = -1;
+		pt3Ds[pt3DIdx].img2ptIdx.erase(imgIdx);
+	}
 }

@@ -84,6 +84,7 @@ public slots:
 	void matchImages(	const int &imgIdx1,
 						const int &imgIdx2);
 	void handleNextPairFinished();
+	void keepMinSpanCameras();
 
 public:
 	CoreInterfaceWidget();
@@ -103,6 +104,7 @@ public:
 	void checkMatch(const QList<bool> &);
 	void removeBad();
 	void deleteCameraByImageIdxs(const std::vector<int> &imgIdxs);
+	void deleteMeasures(const QList<QPair<int,int> > &measures);
 	void denseReconstruct();
 	void computeKeyFrame(const int imgIdx, KeyFrame &kf);
 	void getOverlappingImgs(	const int 								baseImgIdx,
@@ -110,8 +112,8 @@ public:
 	void getBestOverlappingImgs(const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
 	void getMeasuresToPoints(	const std::vector<int> 								&pt3DIdxs,
-								std::vector<std::vector<int> >						&pt3D2Imgs,
-								std::vector<std::vector<std::pair<float,float> > > 	&pt3D2pt2Ds);
+								std::vector<std::vector<std::pair<int,int> > >		&pt3D2Measures,
+								std::vector<std::vector<QPointF> > 					&pt3D2pt2Ds);
 	void ApplyGlobalTransformation(const std::vector<double> &transformation);
 private:
 	SFMPipeline 				*core;

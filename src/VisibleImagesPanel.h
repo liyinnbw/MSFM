@@ -12,16 +12,17 @@ class VisibleImagesPanel : public QWidget{
 	Q_OBJECT
 
 signals:
-
+	void deleteSelectedMeasures(const QList<QPair<int,int> > &);
 
 public slots:
-
+	void deleteMeasures();
 
 public:
 	VisibleImagesPanel(QWidget *parent = 0);
 	virtual ~VisibleImagesPanel();
 	void setImagePaths(const QString &root, const QList<QString> &list);
-	void setVisibleImagesAndMeasures( QMap<int, QList<QPointF> > img2pt2Ds);
+	void setVisibleImagesAndMeasures( 	const std::vector<std::vector<std::pair<int,int> > > 	&pt3D2Measures,
+										const std::vector<std::vector<QPointF> > 				&pt3D2pt2Ds);
 
 
 private:

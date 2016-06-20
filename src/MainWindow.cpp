@@ -131,6 +131,10 @@ void MainWindow::createActions()
 	removeCameraAction->setStatusTip(tr("Remove image selected in matchpanel if the image is used"));
 	connect(removeCameraAction, SIGNAL(triggered()), this, SLOT(handleDeleteCamera()));
 
+	minSpanCamerasAction = new QAction(tr("&MinSpan"),this);
+	minSpanCamerasAction->setStatusTip(tr("Keep minimum cameras covering all points"));
+	connect(minSpanCamerasAction, SIGNAL(triggered()), this, SLOT(handleMinSpanCamera()));
+
 	denseAction = new QAction(tr("&DenseReconstruct"),this);
 	denseAction->setStatusTip(tr("Dense reconstruction using reovered camera poses"));
 	connect(denseAction, SIGNAL(triggered()), this, SLOT(handleDense()));
@@ -179,6 +183,7 @@ void MainWindow::createToolBars()
 	sfmToolBar->addAction(bundleAdjustmentAction);
 	sfmToolBar->addAction(removeBadAction);
 	sfmToolBar->addAction(removeCameraAction);
+	sfmToolBar->addAction(minSpanCamerasAction);
 	sfmToolBar->addAction(denseAction);
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
@@ -199,6 +204,7 @@ void MainWindow::connectWidgets(){
 	connect(coreInterface, SIGNAL(projectLoaded()), this, SLOT(handleProjectLoaded()));
 	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), this, SLOT(highlightPoints(const int, const int)));
 	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), matchPanelModel, SLOT(setImages(const int, const int)));
+	connect(visibleImagesPanel, SIGNAL(deleteSelectedMeasures(const QList<QPair<int,int> > &)), this, SLOT(handleDeleteMeasures(const QList<QPair<int,int> > &)));
 	//connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
 	//connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
 	//connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
@@ -256,32 +262,39 @@ void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
 	for(int i=0; i<idxs.size(); i++){
 		pt3DIdxs.push_back(idxs[i]);
 	}
-	vector<vector<int> > pt2Imgs;
-	vector<vector<pair<float,float> > > pt3D2pt2Ds;
-	coreInterface->getMeasuresToPoints(pt3DIdxs,pt2Imgs,pt3D2pt2Ds);
-	for(int i=0; i<pt3DIdxs.size(); i++){
-		for(int j=0; j<pt2Imgs[i].size(); j++){
+	vector<vector<pair<int,int> > > pt3D2Measures;
+	vector<vector<QPointF> > pt3D2pt2Ds;
+	coreInterface->getMeasuresToPoints(pt3DIdxs,pt3D2Measures,pt3D2pt2Ds);
+
+	//hihglight 3D
+	for(int i=0; i<pt3D2Measures.size(); i++){
+		for(int j=0; j<pt3D2Measures[i].size(); j++){
+			int imgIdx = pt3D2Measures[i][j].first;
 			int camIdx;
-			coreInterface->getCameraIdx(pt2Imgs[i][j],camIdx);
+			coreInterface->getCameraIdx(imgIdx,camIdx);
 			QList<int> ptIdxs;
 			ptIdxs.push_back(pt3DIdxs[i]);
 			cloudViewer->highlightPointIdx(ptIdxs, camIdx);
 		}
 	}
 
-	QMap<int, QList<QPointF> > img2pt2Ds;
-	for(int i=0; i<pt2Imgs.size(); i++){
-		for(int j=0; j<pt2Imgs[i].size(); j++){
-			int imgIdx 	= pt2Imgs[i][j];
-			float x 	= pt3D2pt2Ds[i][j].first;
-			float y		= pt3D2pt2Ds[i][j].second;
+	visibleImagesPanel->setVisibleImagesAndMeasures(pt3D2Measures, pt3D2pt2Ds);
+/*
+	QMap<int, QList<QPointF> > 	img2pt2Ds;
+	QMap<int, QList<int> >		img2pt2DIdxs;
+	for(int i=0; i<pt3D2Measures.size(); i++){
+		for(int j=0; j<pt3D2Measures[i].size(); j++){
+			int imgIdx 	= pt3D2Measures[i][j].first;
+			int pt2DIdx = pt3D2Measures[i][j].second;
 			if(img2pt2Ds.find(imgIdx) == img2pt2Ds.end()){
 				img2pt2Ds[imgIdx] = QList<QPointF>();
+				img2pt2DIdxs[imgIdx] = QList<int>();
 			}
-			img2pt2Ds[imgIdx].push_back(QPointF(x,y));
+			img2pt2Ds[imgIdx].push_back(pt3D2pt2Ds[i][j]);
+			img2pt2DIdxs[imgIdx].push_back(pt2DIdx);
 		}
 	}
-	visibleImagesPanel->setVisibleImagesAndMeasures(img2pt2Ds);
+	visibleImagesPanel->setVisibleImagesAndMeasures(img2pt2Ds,img2pt2DIdxs);*/
 }
 //void MainWindow::handleSave(){
 //	statusBar()->showMessage(tr("saving project and writing point cloud to ply..."));
@@ -310,6 +323,16 @@ void MainWindow::handleDeleteCamera(){
 	imgIdxs.push_back(imgIdx1);
 	imgIdxs.push_back(imgIdx2);
 	coreInterface->deleteCameraByImageIdxs(imgIdxs);
+}
+void MainWindow::handleDeleteMeasures(const QList<QPair<int,int> > &measures){
+	statusBar()->showMessage(tr("deleting measures..."));
+	coreInterface->deleteMeasures(measures);
+	QList<int> camIdxs;
+	handleShowCamerasSeeingPoints(camIdxs);
+}
+void MainWindow::handleMinSpanCamera(){
+	statusBar()->showMessage(tr("finding minimum span camera(s)..."));
+	coreInterface->keepMinSpanCameras();
 }
 void MainWindow::handleDense(){
 	statusBar()->showMessage(tr("dense reconstructing points..."));
@@ -462,7 +485,7 @@ void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-        tr("Open Project"), ".",
+        tr("Open Project"), "/home/yoyo/Desktop/data/save",
 		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)\nTINY files (*.tiny)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
@@ -471,7 +494,7 @@ void MainWindow::openFile()
 }
 void MainWindow::openGPSFile(){
 	QString fileName = QFileDialog::getOpenFileName(this,
-		tr("Open GPS File"), ".",
+		tr("Open GPS File"), "/home/yoyo/Desktop/data/gps",
 		tr("CSV files (*.csv)"));
 
 	if (!fileName.isEmpty() && loadFile(fileName)==0){
@@ -481,7 +504,7 @@ void MainWindow::openGPSFile(){
 void MainWindow::openDirectory(){
 
 	 QString dir = QFileDialog::getExistingDirectory(this,
-			 tr("Open Directory"), ".",
+			 tr("Open Directory"), "/home/yoyo/Desktop/data/pics",
 			 QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
 	 if(dir==""){
@@ -511,7 +534,7 @@ void MainWindow::saveFileAs(){
 	QFileDialog fd(this);
 	QString ext;
 	QString fileName = fd.getSaveFileName(this,
-	        tr("Save Project"), ".",
+	        tr("Save Project"), "/home/yoyo/Desktop/data/save",
 	        tr("TINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)"), &ext);
 
 	if (!fileName.isEmpty()){

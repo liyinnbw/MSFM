@@ -10,6 +10,7 @@
 
 
 #include <vector>
+#include <set>
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <vector>
@@ -119,8 +120,8 @@ public:
 								std::vector<std::vector<int> >			&pt2Imgs);
 
 	void getMeasuresToPoints(	const std::vector<int> 								&pt3DIdxs,
-								std::vector<std::vector<int> >						&pt3D2Imgs,
-								std::vector<std::vector<std::pair<float,float> > >	&pt3D2pt2Ds);
+								std::vector<std::vector<std::pair<int,int> > >		&pt3D2Measures,
+								std::vector<std::vector<cv::Point2f > >				&pt3D2pt2Ds);
 
 	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
 
@@ -133,7 +134,11 @@ public:
 
 	void removeCamera(const int camIdx);
 
+	void removeCameras(const std::set<int> &camIdxs);
+
 	void remove3DsHaveNoMeasurements();
+
+	void removeMeasures(const std::vector<std::pair<int,int> > &measures);
 
 	bool hasPointNormal;
 

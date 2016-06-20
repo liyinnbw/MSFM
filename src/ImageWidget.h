@@ -20,6 +20,7 @@ class ImageWidget: public QWidget
 
 signals:
 	void markSelected(const int);
+	void selectionWindowChanged(const QRect &);
 	void markDeleted(const int);
 	void imageLoaded(const QImage &);
 	void deletePressed();
@@ -51,21 +52,28 @@ public:
 protected:
 	void reset();
 	virtual void drawMarks();
+	virtual void drawSelectionWindow();
 	void paintEvent(QPaintEvent *event);
 	void wheelEvent(QWheelEvent *event);
 	virtual void mouseMoveEvent(QMouseEvent *event);
+	virtual void mousePressEvent(QMouseEvent *event);
+	virtual void mouseReleaseEvent(QMouseEvent *event);
 	void keyPressEvent(QKeyEvent *event);
 	virtual void  distToNearestMark(const QPointF &pos, float &minDist, int &minIdx);
+	virtual QRect  pointsToRect(const QPointF &p1, const QPointF &p2);
 	
 private:
-	QImage image;
-	QString imagePath;
-	QPixmap pixmap;
-	float minZoom;
-	float zoom;
-	QList<QPointF> 	marks;
-	QList<bool> 	mask;
-	int markToHighlight;
+	QImage 					image;
+	QString 				imagePath;
+	QPixmap 				pixmap;
+	float 					minZoom;
+	float 					zoom;
+	QList<QPointF> 			marks;
+	QList<bool> 			mask;
+	int 					markToHighlight;
+	bool					showSelectWin;
+	QPointF					selectWinStart;
+	QPointF					selectWinEnd;
 };
 
 #endif

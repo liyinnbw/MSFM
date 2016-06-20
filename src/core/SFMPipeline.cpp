@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
+#include <set>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -1018,6 +1019,70 @@ void SFMPipeline::pruneHighReprojectionErrorPoints(){
 	cout<<"High Reproj Error Points removed = "<<(cloudSizeOld-cloudSizeNew)<<endl;
 
 }
+
+void SFMPipeline::keepMinSpanCameras(){
+	cout<<"keep min number of cameras covering all points"<<endl;
+	int ptsCovered 	= 0;
+	int ptsSize 	= ptCloud.pt3Ds.size();
+
+	//current pt3d indices
+	Mat pt3DIdxsCovered = Mat::zeros(1, ptsSize, CV_8UC1);
+
+	set<int> minSpanCamIdxs;
+
+	do{
+		int maxCamIdx 	= -1;
+		int maxCoverCnt = -1;
+		Mat maxNewPt3DIdxsCovered;
+		for(int i=0; i<ptCloud.camMats.size(); i++){
+			int imgIdx = ptCloud.camMat2img[i];
+			if(minSpanCamIdxs.find(i)!=minSpanCamIdxs.end()){
+				continue;
+			}
+			vector<Point3f>	pts3D;
+			vector<int>	pts3DIdxs;
+			ptCloud.getAll3DfromImage2D(imgIdx, pts3D, pts3DIdxs);
+			Mat newPt3DIdxsCovered = Mat::zeros(1, ptsSize, CV_8UC1);
+			for(int j=0; j<pts3DIdxs.size(); j++){
+				int idx = pts3DIdxs[j];
+				newPt3DIdxsCovered.at<uchar>(idx) = (uchar) 1;
+			}
+			//cout<<"points seen by img["<<imgIdx<<"] = "<<countNonZero(newPt3DIdxsCovered)<<endl;
+
+			int coverCnt = countNonZero (newPt3DIdxsCovered | pt3DIdxsCovered);
+			if(coverCnt>maxCoverCnt){
+				maxCamIdx = i;
+				maxCoverCnt = coverCnt;
+				maxNewPt3DIdxsCovered = newPt3DIdxsCovered;
+			}
+		}
+		pt3DIdxsCovered |= maxNewPt3DIdxsCovered;
+		int ptsCovered2 = countNonZero(pt3DIdxsCovered);
+		int newPtsCovered = ptsCovered2 - ptsCovered;
+		if(newPtsCovered < ptsSize*0.002){
+			break;
+		}
+		ptsCovered = ptsCovered2;
+		minSpanCamIdxs.insert(maxCamIdx);
+
+		cout<<"min span "<<minSpanCamIdxs.size()<<" camIdxs ("<<ptsCovered<<"/"<<ptsSize<<" new "<<newPtsCovered<<") = ";
+		for(set<int>::iterator it=minSpanCamIdxs.begin(); it!=minSpanCamIdxs.end(); ++it){
+			cout<<(*it)<<" ";
+		}
+		cout<<endl;
+
+	}while(ptsCovered<ptsSize);
+
+	set<int> removeCamIdxs;
+	for(int i=0; i<ptCloud.camMats.size(); i++){
+		if(minSpanCamIdxs.find(i) == minSpanCamIdxs.end()){
+			removeCamIdxs.insert(i);
+		}
+	}
+	ptCloud.removeCameras(removeCamIdxs);
+
+}
+
 void SFMPipeline::writePLY(	const string 			&root,
 							const string			&fname)
 {

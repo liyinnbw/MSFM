@@ -19,13 +19,29 @@ ImageTileWidget:: ImageTileWidget(QWidget *parent)
 	setMinimumZoom(0.1);
 	setFocusPolicy(Qt::StrongFocus);
 	reset();
+	connect(this, SIGNAL(selectionWindowChanged(const QRect &)), this, SLOT(setSelected(const QRect &)));
 }
 
-void ImageTileWidget::setMarks(const QList<QList<QPointF> >& _marks){
+void ImageTileWidget::setMarks(const QList<QList<TileMark> >& _marks){
 	marks = _marks;
 	update();
 }
-
+void ImageTileWidget::setSelected(const QRect &selWin){
+	for(int i=0; i<marks.size(); i++){
+		int r = i/cols;
+		int c = i%cols;
+		int xOffset = c*imgW+GAP_BETWEEN_IMAGES*c;
+		int yOffset = r*imgH+GAP_BETWEEN_IMAGES*r;
+		for(int j=0; j<marks[i].size(); j++){
+			QPointF p = (marks[i][j].pt+QPointF(xOffset,yOffset))*zoomFactor();
+			if(selWin.contains((int)p.x(), (int)p.y())){
+				marks[i][j].selected = true;
+			}else{
+				marks[i][j].selected = false;
+			}
+		}
+	}
+}
 void ImageTileWidget::drawMarks(){
 	QPainter painter(this);
 	painter.setRenderHint(QPainter::Antialiasing);
@@ -35,40 +51,19 @@ void ImageTileWidget::drawMarks(){
 		int xOffset = c*imgW+GAP_BETWEEN_IMAGES*c;
 		int yOffset = r*imgH+GAP_BETWEEN_IMAGES*r;
 		for(int j=0; j<marks[i].size(); j++){
-			QColor color(0,255,0);
+			QColor color;
+			if(marks[i][j].selected){
+				color = QColor(255,0,0);
+			}else{
+				color = QColor(0,255,0);
+			}
 			QPen pen(color, 3, Qt::SolidLine);
 			painter.setPen(pen);
-			QPointF p = marks[i][j]+QPointF(xOffset,yOffset);
+			QPointF p = marks[i][j].pt+QPointF(xOffset,yOffset);
 			painter.drawEllipse(p*zoomFactor(),1,1);
 		}
 	}
-	/*for(int i=0; i<marks1.size(); i++){
-		if(isVisible(i)){
-			QColor c(Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255));
-			QPen pen(c, 1, Qt::SolidLine);
-			painter.setPen(pen);
-			QPointF mark1 = marks1[i];
-			QPointF mark2 = marks2[i]+QPointF(image1.width()+GAP_BETWEEN_IMAGES,0);
-			//painter.drawPoint(mark1.x()*zoomFactor(), mark1.y()*zoomFactor());
-			//painter.drawPoint(mark2.x()*zoomFactor(), mark2.y()*zoomFactor());
-			painter.drawLine(mark1*zoomFactor(),mark2*zoomFactor());
-			painter.drawEllipse(mark1*zoomFactor(),1,1);
-			painter.drawEllipse(mark2*zoomFactor(),1,1);
-			//painter.drawText(mark*zoom, QString::number(i));
-		}
-	}
-	if(getMarkToHightlight()>=0){
-		assert(isVisible(getMarkToHightlight()));
-		QPen pen(Qt::yellow, 3, Qt::SolidLine);
-		painter.setPen(pen);
-		QPointF mark1 = marks1[getMarkToHightlight()];
-		QPointF mark2 = marks2[getMarkToHightlight()]+QPointF(image1.width()+GAP_BETWEEN_IMAGES,0);
-		painter.drawLine(mark1*zoomFactor(),mark2*zoomFactor());
-		painter.drawEllipse(mark1*zoomFactor(),3,3);
-		painter.drawEllipse(mark2*zoomFactor(),3,3);
-	}*/
 }
-
 void ImageTileWidget::setImages(const QString &root, const QList<QString> &list){
 	images.clear();
 	for(int i=0; i<list.size(); i++){
@@ -105,5 +100,14 @@ void ImageTileWidget::combineImages(){
 	setImage(result);
 
 }
-
+void ImageTileWidget::getSelectedMarks(QList<TileMark> &sMarks){
+	sMarks.clear();
+	for(int i=0; i<marks.size(); i++){
+		for(int j=0; j<marks[i].size(); j++){
+			if(marks[i][j].selected){
+				sMarks.push_back(marks[i][j]);
+			}
+		}
+	}
+}
 
