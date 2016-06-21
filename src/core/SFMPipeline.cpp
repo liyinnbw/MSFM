@@ -787,6 +787,7 @@ void SFMPipeline::removeNearAndFar3DPoints(){
 	}
 
 	ptCloud.remove3Ds(removeMask);
+	ptCloud.removeRedundancy();
 }
 void SFMPipeline::findEandPruneMatches(	const vector<Point2f> 	&pts1,
 										const vector<Point2f> 	&pts2,
@@ -1000,9 +1001,8 @@ void SFMPipeline::bundleAdjustment(){
 }
 
 void SFMPipeline::computeMeanReprojectionError(){
-	ptCloud.updateReprojectionErrors(camMat,distortionMat);
 	float meanError;
-	ptCloud.getMeanReprojectionError(meanError);
+	ptCloud.getMeanReprojectionError(camMat,distortionMat,meanError);
 	cout<<"mean projection error = "<<meanError<<endl;
 }
 
@@ -1010,9 +1010,8 @@ void SFMPipeline::pruneHighReprojectionErrorPoints(){
 
 	int cloudSizeOld = ptCloud.pt3Ds.size();
 
-	ptCloud.updateReprojectionErrors(camMat,distortionMat);
 	float thresh = REPROJERROR_THRESH;
-	ptCloud.removeHighError3D(thresh);
+	ptCloud.removeHighError3D(camMat,distortionMat,thresh);
 
 	int cloudSizeNew = ptCloud.pt3Ds.size();
 
@@ -1080,6 +1079,7 @@ void SFMPipeline::keepMinSpanCameras(){
 		}
 	}
 	ptCloud.removeCameras(removeCamIdxs);
+	ptCloud.removeRedundancy();
 
 }
 
@@ -1123,9 +1123,10 @@ void SFMPipeline::readPLY(		const string 			&path,
 }
 
 void SFMPipeline::printDebug(){
-	ptCloud.updateReprojectionErrors(camMat,distortionMat);
+	//ptCloud.updateReprojectionErrors(camMat,distortionMat);
 	float error;
-	ptCloud.getMeanReprojectionError(error);
+	//ptCloud.getMeanReprojectionError(error);
+	ptCloud.getMeanReprojectionError(camMat,distortionMat,error);
 	cout<<"mean reprojection error = "<<error<<endl;
 }
 

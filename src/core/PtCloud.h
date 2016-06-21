@@ -104,12 +104,18 @@ public:
 	void getCamRvecsAndTs( 		std::vector<cv::Mat> 		&rvecs,
 								std::vector<cv::Mat> 		&ts);
 
-	void updateReprojectionErrors(	const cv::Mat			&camIntrinsicMat,
+	/*void updateReprojectionErrors(	const cv::Mat			&camIntrinsicMat,
 									const cv::Mat			&camDistortionMat);
 
-	void getMeanReprojectionError( 	float 					&meanError);
+	void getMeanReprojectionError( 	float 					&meanError);*/
 
-	void removeHighError3D(		const float 				thresh);
+	void getMeanReprojectionError( 	const cv::Mat			&camIntrinsicMat,
+									const cv::Mat			&camDistortionMat,
+									float 					&meanError);
+
+	void removeHighError3D(		const cv::Mat			&camIntrinsicMat,
+								const cv::Mat			&camDistortionMat,
+								const float 				thresh);
 
 	void getOverlappingImgs(	const int 								baseImgIdx,
 								std::map<int,std::vector<int> > 		&img2pt3Didxs);
@@ -138,7 +144,11 @@ public:
 
 	void remove3DsHaveNoMeasurements();
 
+	void removeCamerasSeeingNo3Ds();
+
 	void removeMeasures(const std::vector<std::pair<int,int> > &measures);
+
+	void removeRedundancy();
 
 	bool hasPointNormal;
 

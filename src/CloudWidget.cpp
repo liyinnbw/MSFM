@@ -265,7 +265,7 @@ void CloudWidget::showCameras(const QList<int> idxs){
 }
 void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	if(pointsData == NULL) return;
-	cout<<idxs.size()<<" points seen by camera "<<camIdx<<endl;
+	//cout<<idxs.size()<<" points seen by camera "<<camIdx<<endl;
 	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
 	vtkIdType numOfPoints;
 	vtkIdType *pointIDs;

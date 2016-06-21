@@ -223,7 +223,7 @@ void BAHandler::adjustBundle_sba(	PtCloud &ptCloud,
 
 	float error_before;
 	double f_before, ppx_before, ppy_before;
-	ptCloud.getMeanReprojectionError(error_before);
+	ptCloud.getMeanReprojectionError(cam_matrix, distortion_coefficients, error_before);
 	f_before 		= cam_matrix.at<double>(0,0);
 	ppx_before 		= cam_matrix.at<double>(0,2);
 	ppy_before		= cam_matrix.at<double>(1,2);
@@ -286,8 +286,8 @@ void BAHandler::adjustBundle_sba(	PtCloud &ptCloud,
 
 	float error_after;
 	double f_after, ppx_after, ppy_after;
-	ptCloud.updateReprojectionErrors(cam_matrix,distortion_coefficients);
-	ptCloud.getMeanReprojectionError(error_after);
+	//ptCloud.updateReprojectionErrors(cam_matrix,distortion_coefficients);
+	ptCloud.getMeanReprojectionError(cam_matrix,distortion_coefficients, error_after);
 	f_after 		= cam_matrix.at<double>(0,0);
 	ppx_after 		= cam_matrix.at<double>(0,2);
 	ppy_after		= cam_matrix.at<double>(1,2);

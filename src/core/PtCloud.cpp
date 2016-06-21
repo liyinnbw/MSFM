@@ -74,9 +74,9 @@ void PtCloud::add3D(	const int 				imgIdx1,
 		Pt3D pt3D;
 		pt3D.pt				= xyzs[i];
 		pt3D.img2ptIdx[imgIdx1] = img2Didxs1[i];
-		pt3D.img2error[imgIdx1] = 0.0f;
+		//pt3D.img2error[imgIdx1] = 0.0f;
 		pt3D.img2ptIdx[imgIdx2] = img2Didxs2[i];
-		pt3D.img2error[imgIdx2] = 0.0f;
+		//pt3D.img2error[imgIdx2] = 0.0f;
 		pt3Ds.push_back(pt3D);
 
 		//update corresponding 2D points
@@ -125,41 +125,7 @@ void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
 	assert(removed == (removeMask.size() - pt3Ds.size()));
 
 }*/
-void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
-	assert(removeMask.size() == pt3Ds.size());
-	int removeCnt = 0;
 
-	//before removing 3d point, update 2d measures
-	for(int i=0; i<removeMask.size(); i++){
-		int newPt3DIdx;
-		if(removeMask[i]){
-			newPt3DIdx = -1;
-			removeCnt++;
-		}else{
-			newPt3DIdx = i - removeCnt;
-		}
-		const map<int,int>& img2ptIdx = pt3Ds[i].img2ptIdx;
-		//NOTE: you must use const_iterator to iterate through const data
-		for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
-			int imgIdx 	= (*j).first;
-			int imgPtIdx= (*j).second;
-			img2pt2Ds[imgIdx][imgPtIdx].pt3D_idx = newPt3DIdx;
-		}
-	}
-
-	//remove 3ds (for vector, faster to copy than to erase)
-	vector<Pt3D> newPt3Ds;
-	newPt3Ds.reserve(pt3Ds.size() - removeCnt);
-	for(int i=0; i<removeMask.size(); i++){
-		if(!removeMask[i]){
-			newPt3Ds.push_back(pt3Ds[i]);
-		}
-	}
-	pt3Ds = newPt3Ds;
-
-	assert(removeCnt == (removeMask.size() - pt3Ds.size()));
-
-}
 
 void PtCloud::addCamMat(	int			imgIdx,
 							cv::Matx34d	&camMat){
@@ -189,7 +155,7 @@ void PtCloud::update3D(	const int 			imgIdx,
 			continue;
 		}
 		pt3Ds[pt3D_idx].img2ptIdx[imgIdx] = pt2D_idx;
-		pt3Ds[pt3D_idx].img2error[imgIdx] = 0.0f;
+		//pt3Ds[pt3D_idx].img2error[imgIdx] = 0.0f;
 
 		//update corresponding 2D points
 		assert(img2pt2Ds[imgIdx][pt2D_idx].img_idx == imgIdx);
@@ -423,7 +389,7 @@ void PtCloud::getCamRvecsAndTs( vector<Mat> 		&rvecs,
 		ts.push_back(t);
 	}
 }
-
+/*
 void PtCloud::updateReprojectionErrors(	const Mat		&camIntrinsicMat,
 										const Mat		&camDistortionMat)
 {
@@ -484,12 +450,71 @@ void PtCloud::getMeanReprojectionError( 	float 	&meanError){
 	}
 
 	meanError = totalError/totalMeasures;
-}
+}*/
+void PtCloud::getMeanReprojectionError( 	const Mat			&camIntrinsicMat,
+											const Mat			&camDistortionMat,
+											float 				&meanError)
+{
+	int N = pt3Ds.size();
+	int M = camMats.size();
+	int totalMeasures = 0;
+	float totalError  = 0.0f;
 
+	vector<vector<Point3f> >cam2pt3Ds(M,vector<Point3f>());
+	vector<vector<Point2f> >cam2pt2Ds(M,vector<Point2f>());
+	vector<vector<int> > 	cam2pt3Didxs(M,vector<int>());
+
+	for(int i=0; i<N; i++){
+		pt3Ds[i].img2error.clear();	//clear saved errror data
+		const map<int, int>& img2ptIdx = pt3Ds[i].img2ptIdx;
+		const Point3f& xyz		= pt3Ds[i].pt;
+		for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			int imgIdx 			= (*j).first;
+			int camIdx 			= img2camMat[imgIdx];
+			int pt2DIdx			= (*j).second;
+			const Point2f& xy	= img2pt2Ds[imgIdx][pt2DIdx].pt;
+			cam2pt3Ds[camIdx].push_back(xyz);
+			cam2pt2Ds[camIdx].push_back(xy);
+			cam2pt3Didxs[camIdx].push_back(i);
+		}
+	}
+	vector<Mat> rvecs,ts;
+	getCamRvecsAndTs(rvecs,ts);
+
+
+
+
+	//calculate reprojection errors
+	for(int i=0; i<M; i++){
+		vector<Point2f> reprojected;
+		if(cam2pt3Ds[i].empty()){
+			continue;
+		}
+		projectPoints(cam2pt3Ds[i], rvecs[i], ts[i], camIntrinsicMat, camDistortionMat, reprojected);
+		assert(reprojected.size() == cam2pt2Ds[i].size());
+		assert(camMat2img.find(i)!=camMat2img.end());
+		int imgIdx = camMat2img[i];
+		for(int j=0; j<reprojected.size(); j++){
+			float reprojectError = (float) norm((reprojected[j]-cam2pt2Ds[i][j]));	//distance between 2 points
+			pt3Ds[cam2pt3Didxs[i][j]].img2error[imgIdx] = reprojectError;			//save result to avoid recomputation in remove bad points step
+			totalError += reprojectError;
+			totalMeasures++;
+		}
+	}
+
+	if(totalMeasures == 0){
+		meanError = 0;
+	}else{
+		meanError = totalError/totalMeasures;
+	}
+
+}
 //precondition: updateReprojectionErrors was called before
-void PtCloud::removeHighError3D(	const float thresh){
+void PtCloud::removeHighError3D(	const Mat			&camIntrinsicMat,
+									const Mat			&camDistortionMat,
+									const float 		thresh){
 	float meanError;
-	getMeanReprojectionError(meanError);
+	getMeanReprojectionError(camIntrinsicMat, camDistortionMat, meanError);
 	float errorThresh = meanError*thresh;
 
 	int N = pt3Ds.size();
@@ -507,6 +532,7 @@ void PtCloud::removeHighError3D(	const float thresh){
 		}
 	}
 	remove3Ds(removeMask);
+	removeRedundancy();
 }
 
 //return list of cameras seeing overlapping points as the given camera, and the idxs of 3d points they seen
@@ -698,13 +724,60 @@ bool PtCloud::getImageGPS(const int imgIdx, double &lat, double &lon) const{
 	}
 }
 
+//removal functions
+
+void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
+	assert(removeMask.size() == pt3Ds.size());
+	int removeCnt = 0;
+
+	//before removing 3d point, update 2d measures
+	for(int i=0; i<removeMask.size(); i++){
+		int newPt3DIdx;
+		if(removeMask[i]){
+			newPt3DIdx = -1;
+			removeCnt++;
+		}else{
+			newPt3DIdx = i - removeCnt;
+		}
+		const map<int,int>& img2ptIdx = pt3Ds[i].img2ptIdx;
+		//NOTE: you must use const_iterator to iterate through const data
+		for(map<int, int>::const_iterator j = img2ptIdx.begin(); j != img2ptIdx.end(); j++) {
+			int imgIdx 	= (*j).first;
+			int imgPtIdx= (*j).second;
+			img2pt2Ds[imgIdx][imgPtIdx].pt3D_idx = newPt3DIdx;
+		}
+	}
+
+	//remove 3ds (for vector, faster to copy than to erase)
+	vector<Pt3D> newPt3Ds;
+	newPt3Ds.reserve(pt3Ds.size() - removeCnt);
+	for(int i=0; i<removeMask.size(); i++){
+		if(!removeMask[i]){
+			newPt3Ds.push_back(pt3Ds[i]);
+		}
+	}
+	pt3Ds = newPt3Ds;
+	assert(removeCnt == (removeMask.size() - pt3Ds.size()));
+}
+void PtCloud::removeMeasures(const std::vector<std::pair<int,int> > &measures){
+	for(int i=0; i<measures.size(); i++){
+		int imgIdx = measures[i].first;
+		int pt2DIdx= measures[i].second;
+		assert(imageIsUsed(imgIdx));
+		assert(pt2DIdx>=0 && pt2DIdx<img2pt2Ds[imgIdx].size());
+		int pt3DIdx= img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx;
+		assert(pt3DIdx!=-1);
+		assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)!=pt3Ds[pt3DIdx].img2ptIdx.end());
+		img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx = -1;
+		pt3Ds[pt3DIdx].img2ptIdx.erase(imgIdx);
+	}
+}
 void PtCloud::removeCameras(const set<int> &camIdxs){
 	int removedCnt = 0;
 	for(set<int>::iterator it = camIdxs.begin(); it!=camIdxs.end(); ++it){
 		removeCamera((*it)-removedCnt);
 		removedCnt++;
 	}
-	remove3DsHaveNoMeasurements();
 }
 
 //XXX: this function does not remove orphan points, call remove3dsHaveNoMeasurements later.
@@ -740,6 +813,7 @@ void PtCloud::removeCamera(const int camIdx){
 	}
 }
 
+//should only be called by removeRedundancy
 void PtCloud::remove3DsHaveNoMeasurements(){
 	vector<bool> removeMask(pt3Ds.size(),false);
 	for(int i=0; i<pt3Ds.size(); i++){
@@ -749,16 +823,32 @@ void PtCloud::remove3DsHaveNoMeasurements(){
 	}
 	remove3Ds(removeMask);
 }
-void PtCloud::removeMeasures(const std::vector<std::pair<int,int> > &measures){
-	for(int i=0; i<measures.size(); i++){
-		int imgIdx = measures[i].first;
-		int pt2DIdx= measures[i].second;
-		assert(imageIsUsed(imgIdx));
-		assert(pt2DIdx>=0 && pt2DIdx<img2pt2Ds[imgIdx].size());
-		int pt3DIdx= img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx;
-		assert(pt3DIdx!=-1);
-		assert(pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx)!=pt3Ds[pt3DIdx].img2ptIdx.end());
-		img2pt2Ds[imgIdx][pt2DIdx].pt3D_idx = -1;
-		pt3Ds[pt3DIdx].img2ptIdx.erase(imgIdx);
+//should only be called by removeRedundancy
+void PtCloud::removeCamerasSeeingNo3Ds(){
+	set<int> camIdxs;
+	for(int i=0; i<camMats.size(); i++){
+		assert(camMat2img.find(i)!=camMat2img.end());
+		int imgIdx = camMat2img[i];
+		if( img2pt2Ds.find(imgIdx) == img2pt2Ds.end()){
+			camIdxs.insert(i);
+		}else{
+			bool no3D = true;
+			for(int j=0; j<img2pt2Ds[imgIdx].size(); j++){
+				if(img2pt2Ds[imgIdx][j].pt3D_idx!=-1){
+					no3D = false;
+					break;
+				}
+			}
+			if(no3D){
+				camIdxs.insert(i);
+			}
+		}
 	}
+	removeCameras(camIdxs);
+}
+
+//always call this after removal is done
+void PtCloud::removeRedundancy(){
+	remove3DsHaveNoMeasurements();
+	removeCamerasSeeingNo3Ds();
 }

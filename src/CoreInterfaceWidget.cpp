@@ -91,6 +91,7 @@ void TaskThread::run(){
 				removeMask[deleteIdxs[i]]=true;
 			}
 			mCore->ptCloud.remove3Ds(removeMask);
+			mCore->ptCloud.removeRedundancy();
 		}
 			break;
 		case TASK_BUNDLEADJUST:
@@ -347,12 +348,15 @@ void CoreInterfaceWidget::deleteCameraByImageIdxs(const std::vector<int> &imgIdx
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
+	set<int> camIdxs;
 	for(int i=0; i<imgIdxs.size(); i++){
 		if(core->ptCloud.imageIsUsed(imgIdxs[i])){
 			int camIdx = core->ptCloud.img2camMat[imgIdxs[i]];
-			core->ptCloud.removeCamera(camIdx);
+			camIdxs.insert(camIdx);
 		}
 	}
+	core->ptCloud.removeCameras(camIdxs);
+	core->ptCloud.removeRedundancy();
 
 	emit pointCloudReady(true);
 }
@@ -374,7 +378,7 @@ void CoreInterfaceWidget::deleteMeasures(const QList<QPair<int,int> > &measures)
 		ms.push_back(make_pair(measures[i].first, measures[i].second));
 	}
 	core->ptCloud.removeMeasures(ms);
-	core->ptCloud.remove3DsHaveNoMeasurements();
+	core->ptCloud.removeRedundancy();
 
 	emit pointCloudReady(false);
 }

@@ -374,7 +374,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						int imgIdx 	= (int) nn["imgIdx"];
 						int pt2dIdx = (int) nn["pt2dIdx"];
 						pt3D.img2ptIdx[imgIdx] = pt2dIdx;
-						pt3D.img2error[imgIdx] = 0.0f;
+						//pt3D.img2error[imgIdx] = 0.0f;
 						//link up image 2d features
 						assert(imgIdx == ptCloud.img2pt2Ds[imgIdx][pt2dIdx].img_idx);
 						ptCloud.img2pt2Ds[imgIdx][pt2dIdx].pt3D_idx = ptCloud.pt3Ds.size(); //note, this pt3D has not been pushed to cloud yet
@@ -626,7 +626,8 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 					}
 					getline(infile, line);
 				}
-				cout<<"camera end"<<endl;
+				cout<<ptCloud.imgs.size()<<" images read"<<endl;
+				cout<<ptCloud.camMats.size()<<" cameras read"<<endl;
 			}else if(line.find("PATCHS")!=std::string::npos){
 				//get 3d coordinates
 				getline(infile, line);
@@ -696,21 +697,6 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		}
 		cout<<ptCloud.pt3Ds.size()<<" 3D points read"<<endl;
 
-		bool hasRemovedACamera = true;
-		while(hasRemovedACamera){
-			hasRemovedACamera = false;
-			for(int i=0; i<ptCloud.imgs.size(); i++){
-				if(ptCloud.img2pt2Ds.find(i)==ptCloud.img2pt2Ds.end() && ptCloud.imageIsUsed(i)){
-					int camIdx = ptCloud.img2camMat[i];
-					ptCloud.removeCamera(camIdx);
-					hasRemovedACamera = true;
-					cout<<ptCloud.imgs[i]<<" is not used"<<endl;
-					break;
-				}
-			}
-
-		}
-		cout<<ptCloud.camMats.size()<<"/"<<ptCloud.imgs.size()<<" images used"<<endl;
 	}else if(Utils::endsWith(fname,".tiny")){
 		cout<<"file format: patch"<<endl;
 		ifstream infile(fname.c_str());
@@ -830,7 +816,11 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		}
 	}
 
-	ptCloud.remove3DsHaveNoMeasurements();
+	ptCloud.removeRedundancy();
+	cout<<"stats:"<<endl;
+	cout<<"cloud points = "<<ptCloud.pt3Ds.size()<<endl;
+	cout<<"images       = "<<ptCloud.imgs.size()<<endl;
+	cout<<"cameras      = "<<ptCloud.camMats.size()<<endl;
 
 }
 
