@@ -444,16 +444,50 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						double f,qw,qx,qy,qz,t0,t1,t2,r;
 
 						iss2>>imgName>>f>>qw>>qx>>qy>>qz>>t0>>t1>>t2>>r;
-						//cout<<imgName<<" "<<f<<" "<<qw<<" "<<qx<<" "<<qy<<" "<<qz<<" "<<t0<<" "<<t1<<" "<<t2<<" "<<r<<endl;
+						//TODO:comment out the following
+						if(imgName == "VID_20160623_100812_2101.JPG" || imgName == "VID_20160623_100812_2601.JPG"){
+							cout<<imgName<<" "<<f<<" "<<qw<<" "<<qx<<" "<<qy<<" "<<qz<<" "<<t0<<" "<<t1<<" "<<t2<<" "<<r<<endl;
+						}
 						if(imgW_Half <0){
 							Mat tmp = imread(ptCloud.imgRoot+"/"+imgName,IMREAD_COLOR);
 							imgW_Half 	= tmp.cols/2;
 							imgH_Half	= tmp.rows/2;
 							cout<<"img size = "<<imgW_Half*2<<"x"<<imgH_Half*2<<endl;
 						}
-						Matx33d R_matx(	1-2*qy*qy-2*qz*qz, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw,
-										2*qx*qy + 2*qz*qw, 1-2*qx*qx-2*qz*qz, 2*qy*qz - 2*qx*qw,
-										2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1-2*qx*qx-2*qy*qy);
+						double sqw = qw*qw;
+						double sqx = qx*qx;
+						double sqy = qy*qy;
+						double sqz = qz*qz;
+
+						// invs (inverse square length) is only required if quaternion is not already normalised
+						double invs = 1 / (sqx + sqy + sqz + sqw);
+
+						double m00 = ( sqx - sqy - sqz + sqw)*invs ; // since sqw + sqx + sqy + sqz =1/invs*invs
+						double m11 = (-sqx + sqy - sqz + sqw)*invs ;
+						double m22 = (-sqx - sqy + sqz + sqw)*invs ;
+
+						double tmp1 = qx*qy;
+						double tmp2 = qz*qw;
+						double m10 = 2.0 * (tmp1 + tmp2)*invs ;
+						double m01 = 2.0 * (tmp1 - tmp2)*invs ;
+
+						tmp1 = qx*qz;
+						tmp2 = qy*qw;
+						double m20 = 2.0 * (tmp1 - tmp2)*invs ;
+						double m02 = 2.0 * (tmp1 + tmp2)*invs ;
+						tmp1 = qy*qz;
+						tmp2 = qx*qw;
+						double m21 = 2.0 * (tmp1 + tmp2)*invs ;
+						double m12 = 2.0 * (tmp1 - tmp2)*invs ;
+
+						Matx33d R_matx(	m00, m01, m02,
+										m10, m11, m12,
+										m20, m21, m22);
+
+						//Matx33d R_matx(	1-2*qy*qy-2*qz*qz, 2*qx*qy - 2*qz*qw, 2*qx*qz + 2*qy*qw,
+						//				2*qx*qy + 2*qz*qw, 1-2*qx*qx-2*qz*qz, 2*qy*qz - 2*qx*qw,
+						//				2*qx*qz - 2*qy*qw, 2*qy*qz + 2*qx*qw, 1-2*qx*qx-2*qy*qy);
+
 						Matx31d C_matx(t0,
 										t1,
 										t2);
@@ -462,7 +496,10 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						Matx34d cm(R_matx(0,0),R_matx(0,1),R_matx(0,2),t.at<double>(0),
 									R_matx(1,0),R_matx(1,1),R_matx(1,2),t.at<double>(1),
 									R_matx(2,0),R_matx(2,1),R_matx(2,2),t.at<double>(2));
-
+						//TODO:comment out the following
+						if(imgName == "VID_20160623_100812_2101.JPG" || imgName == "VID_20160623_100812_2601.JPG"){
+							cout<<cm<<endl;
+						}
 
 						ptCloud.imgs.push_back(imgName);
 						ptCloud.camMats.push_back(cm);
@@ -655,7 +692,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 
 				//get measurements
 				getline(infile, line);
-				/*istringstream iss3(line);
+				istringstream iss3(line);
 				while(numMeasures-->0){
 					int imgIdx;
 					double x_2d, y_2d;
@@ -668,7 +705,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 					ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
 					assert(pt3D.img2ptIdx.find(imgIdx) == pt3D.img2ptIdx.end());
 					pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
-				}*/
+				}
 
 				//get number of visible measurements
 				getline(infile, line);

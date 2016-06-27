@@ -85,14 +85,21 @@ void MatchPanel::setImagePaths(const QString &root, const QList<QString> &list){
 	imgList2->clear();
 	imgList1->addItem(tr("Select image"));
 	imgList2->addItem(tr("Select image"));
-	imgList1->addItems(list);
-	imgList2->addItems(list);
+	QList<QString> indexedList;
+	for(int i=0; i<list.size(); i++){
+		QString index = QString("[%1]").arg(i);
+		indexedList.push_back(index+list[i]);
+	}
+	imgList1->addItems(indexedList);
+	imgList2->addItems(indexedList);
 }
 
 void MatchPanel::handleFirstImageSelected(int idx){
 	if(imgList1->currentIndex()>0){
 		cout<<"1st image:["<<idx-1<<"]"<<imgList1->itemText(idx).toStdString()<<endl;
-		imageView1->setImage(imgRoot+"/"+imgList1->itemText(idx));
+		QRegExp rx("(\\[|\\])"); //RegEx for '[' or ']'
+		QStringList tokens = imgList1->itemText(idx).split(rx);
+		imageView1->setImage(imgRoot+"/"+tokens[tokens.size()-1]);
 		//emit firstImageSelected(idx-1);
 		emit imageChanged(idx-1,imgList2->currentIndex()-1);
 	}
@@ -101,7 +108,9 @@ void MatchPanel::handleFirstImageSelected(int idx){
 void MatchPanel::handleSecondImageSelected(int idx){
 	if(imgList2->currentIndex()>0){
 		cout<<"2nd image:["<<idx-1<<"]"<<imgList2->itemText(idx).toStdString()<<endl;
-		imageView2->setImage(imgRoot+"/"+imgList2->itemText(idx));
+		QRegExp rx("(\\[|\\])"); //RegEx for '[' or ']'
+		QStringList tokens = imgList2->itemText(idx).split(rx);
+		imageView2->setImage(imgRoot+"/"+tokens[tokens.size()-1]);
 		emit imageChanged(imgList1->currentIndex()-1,idx-1);
 	}
 }

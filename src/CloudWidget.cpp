@@ -134,11 +134,18 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
 #endif
       this->SelectedMapper->ScalarVisibilityOff();
 
-      //vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(selected->GetPointData()->GetArray("OriginalIds"));
-      //for(vtkIdType i = 0; i < ids->GetNumberOfTuples(); i++)
-      //  {
-      //  std::cout << "Id " << i << " : " << ids->GetValue(i) << std::endl;
-      //}
+      //TODO: comment out the following debug
+      vtkIdTypeArray* ids = vtkIdTypeArray::SafeDownCast(selected->GetPointData()->GetArray("OriginalIds"));
+      for(vtkIdType i = 0; i < ids->GetNumberOfTuples(); i++)
+      {
+    	int originalID = ids->GetValue(i);
+		if(	originalID>=parentWidget->numCloudPoints){
+			int camIdx = (originalID-parentWidget->numCloudPoints)/4;
+			std::cout << "selected camera " << camIdx << std::endl;
+		}else{
+			//std::cout << "point " << i << " : " << originalID<<" is a camera point" << std::endl;
+		}
+      }
         
       this->SelectedActor->GetProperty()->SetColor(1.0, 0.0, 0.0); //(R,G,B)
       this->SelectedActor->GetProperty()->SetPointSize(CloudWidget::POINT_SIZE);
