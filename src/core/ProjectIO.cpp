@@ -444,10 +444,8 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						double f,qw,qx,qy,qz,t0,t1,t2,r;
 
 						iss2>>imgName>>f>>qw>>qx>>qy>>qz>>t0>>t1>>t2>>r;
-						//TODO:comment out the following
-						if(imgName == "VID_20160623_100812_2101.JPG" || imgName == "VID_20160623_100812_2601.JPG"){
-							cout<<imgName<<" "<<f<<" "<<qw<<" "<<qx<<" "<<qy<<" "<<qz<<" "<<t0<<" "<<t1<<" "<<t2<<" "<<r<<endl;
-						}
+						//cout<<imgName<<" "<<f<<" "<<qw<<" "<<qx<<" "<<qy<<" "<<qz<<" "<<t0<<" "<<t1<<" "<<t2<<" "<<r<<endl;
+
 						if(imgW_Half <0){
 							Mat tmp = imread(ptCloud.imgRoot+"/"+imgName,IMREAD_COLOR);
 							imgW_Half 	= tmp.cols/2;
@@ -496,10 +494,7 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						Matx34d cm(R_matx(0,0),R_matx(0,1),R_matx(0,2),t.at<double>(0),
 									R_matx(1,0),R_matx(1,1),R_matx(1,2),t.at<double>(1),
 									R_matx(2,0),R_matx(2,1),R_matx(2,2),t.at<double>(2));
-						//TODO:comment out the following
-						if(imgName == "VID_20160623_100812_2101.JPG" || imgName == "VID_20160623_100812_2601.JPG"){
-							cout<<cm<<endl;
-						}
+
 
 						ptCloud.imgs.push_back(imgName);
 						ptCloud.camMats.push_back(cm);
