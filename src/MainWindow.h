@@ -17,6 +17,7 @@ class VisibleImagesPanel;
 class QToolBar;
 class CoreInterfaceWidget;
 class MatchPanel;
+
 //class KeyFramePanel;
 //class KeyFrameModel;
 class QString;
@@ -33,6 +34,7 @@ private slots:
 	void openFile();
 	void openDirectory();
 	void openGPSFile();
+	void openPolygonFile();
 	void saveFileAs();
 	void handleProjectLoaded();
 	void handleReconstruct();
@@ -47,9 +49,11 @@ private slots:
 	void handleRemoveBad();
 	void handleDense();
 	void displayPointCloud(bool resetView);
+	void displayPolygon(bool resetView);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
 	void handleNormalRenderToggle();
+	void handlePolygonRenderToggle();
 	void handleDeleteCamera();
 	void handleMinSpanCamera();
 
@@ -64,6 +68,7 @@ private:
 
     QAction 				*openAction;
     QAction 				*openGPSAction;
+    QAction 				*openPolygonAction;
     QAction 				*openSavedAction;
     QAction 				*featureMatchAction;
 	QAction 				*reconstructAction;
@@ -74,6 +79,7 @@ private:
 	QAction 				*saveAction;
 	QAction 				*denseAction;
 	QAction 				*renderNormalToggleAction;
+	QAction 				*renderPolygonToggleAction;
 	QAction 				*removeCameraAction;
 	QAction 				*minSpanCamerasAction;
 	//QAction					*keyframeAction;
@@ -93,6 +99,7 @@ private:
 
 	QString 				imageRoot;
 	bool					showNormal;
+	bool					showPolygon;
 };
 
 #endif

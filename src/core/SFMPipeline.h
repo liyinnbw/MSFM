@@ -14,6 +14,7 @@
 #include <opencv2/core/core.hpp>
 
 #include "PtCloud.h"
+#include "PolygonModel.h"
 struct KeyFrame;
 class SFMPipeline {
 public:
@@ -153,11 +154,14 @@ public:
 
 	void loadGPS(				const std::string				&fname);
 
+	void loadPolygon(			const std::string				&fname);
+
 	double getCamFocal();
 	cv::Point2d getCamPrinciple();
 	int getCloudSize(){return ptCloud.pt3Ds.size();}
 
 	PtCloud ptCloud; //contains more than just 3d cloud, see declaration
+	PolygonModel poly;
 
 	double camFocal;
 	cv::Point2d camPrinciple;

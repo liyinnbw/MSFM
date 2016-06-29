@@ -96,6 +96,10 @@ void MainWindow::createActions()
     openGPSAction->setStatusTip(tr("Open GPS file"));
 	connect(openGPSAction, SIGNAL(triggered()), this, SLOT(openGPSFile()));
 
+	openPolygonAction = new QAction(tr("&Open Polygon"), this);
+	openPolygonAction->setStatusTip(tr("Open Polygon file"));
+	connect(openPolygonAction, SIGNAL(triggered()), this, SLOT(openPolygonFile()));
+
 	saveAction = new QAction(tr("&Save"),this);
 	saveAction->setShortcut(tr("Ctrl+S"));
 	saveAction->setStatusTip(tr("Save project file"));
@@ -148,6 +152,11 @@ void MainWindow::createActions()
 	renderNormalToggleAction->setStatusTip(tr("Show/Hide Normal"));
 	connect(renderNormalToggleAction, SIGNAL(triggered()), this, SLOT(handleNormalRenderToggle()));
 
+	renderPolygonToggleAction= new QAction(tr("&Show/Hide Polygon"),this);
+	showPolygon = false;
+	renderPolygonToggleAction->setStatusTip(tr("Show/Hide Polygon"));
+	connect(renderPolygonToggleAction, SIGNAL(triggered()), this, SLOT(handlePolygonRenderToggle()));
+
 }
 
 void MainWindow::createMenus()
@@ -156,9 +165,11 @@ void MainWindow::createMenus()
     fileMenu->addAction(openAction);
     fileMenu->addAction(openSavedAction);
     fileMenu->addAction(openGPSAction);
+    fileMenu->addAction(openPolygonAction);
     fileMenu->addAction(saveAction);
     QMenu *optionMenu = menuBar()->addMenu(tr("&Option"));
     optionMenu->addAction(renderNormalToggleAction);
+    optionMenu->addAction(renderPolygonToggleAction);
 }
 
 void MainWindow::createStatusBar()
@@ -171,7 +182,6 @@ void MainWindow::createToolBars()
     fileToolBar = addToolBar(tr("File"));
     fileToolBar->addAction(openAction);
     fileToolBar->addAction(openSavedAction);
-    fileToolBar->addAction(openGPSAction);
     fileToolBar->addAction(saveAction);
     
     sfmToolBar = addToolBar(tr("SFM"));
@@ -198,6 +208,7 @@ void MainWindow::connectWidgets(){
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
 	connect(cloudViewer, SIGNAL(showCamerasSeeingPoints(const QList<int>)), this, SLOT(handleShowCamerasSeeingPoints(const QList<int>)));
 	connect(coreInterface, SIGNAL(pointCloudReady(bool)), this, SLOT(displayPointCloud(bool)));
+	connect(coreInterface, SIGNAL(polygonReady(bool)), this, SLOT(displayPolygon(bool)));
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
 	connect(coreInterface, SIGNAL(nextPairReady(const int, const int)), matchPanel, SLOT(setImagePair(const int, const int)));
@@ -431,7 +442,7 @@ void MainWindow::handleLineCommand(){
 
 }
 void MainWindow::displayPointCloud(bool resetView){
-	statusBar()->showMessage(tr("loading cloud..."));
+	statusBar()->showMessage(tr("refreshing cloud..."));
 	vector<Point3f> xyzs, norms;
 	coreInterface->getPointCloud(xyzs);
 	if(showNormal){
@@ -441,7 +452,7 @@ void MainWindow::displayPointCloud(bool resetView){
 	coreInterface->getCameras(cams);
 	//cloudViewer->loadCloud(xyzs);
 	cloudViewer->loadCloudAndCamera(xyzs, norms, cams, resetView);
-	statusBar()->showMessage(tr("cloud loaded"));
+	statusBar()->showMessage(tr("cloud refreshed"));
 	
 	//also update match panel image lists to highlight images
 	vector<int>	useImgIdxs;
@@ -450,9 +461,28 @@ void MainWindow::displayPointCloud(bool resetView){
 	statusBar()->showMessage(tr("image list updated"));
 
 }
+void MainWindow::displayPolygon(bool resetView){
+	showPolygon = true;
+	statusBar()->showMessage(tr("refreshing polygon..."));
+	vector<Point3f> verts;
+	vector<Point3i> faces;
+	coreInterface->getPolygons(verts, faces);
+	vector<Matx34d> cams;
+	coreInterface->getCameras(cams);
+	cloudViewer->loadPolygonAndCamera(verts, faces, cams, resetView);
+	statusBar()->showMessage(tr("polygon refreshed"));
+}
 void MainWindow::handleNormalRenderToggle(){
 	showNormal = !showNormal;
 	displayPointCloud(false);
+}
+void MainWindow::handlePolygonRenderToggle(){
+	showPolygon = !showPolygon;
+	if(showPolygon){
+		displayPolygon(false);
+	}else{
+		displayPointCloud(false);
+	}
 }
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	displayPointCloud(false);	//to reset previous highlights just reload the point cloud
@@ -499,6 +529,15 @@ void MainWindow::openGPSFile(){
 
 	if (!fileName.isEmpty() && loadFile(fileName)==0){
 		coreInterface -> loadGPS(fileName);
+	}
+}
+void MainWindow::openPolygonFile(){
+	QString fileName = QFileDialog::getOpenFileName(this,
+		tr("Open Polygon File"), "/home/yoyo/Desktop/data/polygons",
+		tr("PLY files (*.ply)"));
+
+	if (!fileName.isEmpty() && loadFile(fileName)==0){
+		coreInterface -> loadPolygon(fileName);
 	}
 }
 void MainWindow::openDirectory(){

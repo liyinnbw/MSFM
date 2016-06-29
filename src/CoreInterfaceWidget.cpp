@@ -429,6 +429,19 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	}
 	core-> ptCloud.getXYZs(xyzs);
 }
+void CoreInterfaceWidget::getPolygons(vector<Point3f> &verts, vector<Point3i> &faces){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core-> poly.getPolygons(verts, faces);
+}
 void CoreInterfaceWidget::getPointNormals(	vector<cv::Point3f> &norms){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
@@ -575,6 +588,23 @@ void CoreInterfaceWidget::loadGPS(const QString &fname){
 	}
 	cout<<"core interface load gps"<<endl;
 	core ->loadGPS(fname.toStdString());
+
+}
+
+void CoreInterfaceWidget::loadPolygon(const QString &fname){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","project is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface load polygons"<<endl;
+	core ->loadPolygon(fname.toStdString());
+	emit polygonReady(true);	//need to reset camera view
 
 }
 

@@ -16,6 +16,7 @@
 #include <vtkObjectFactory.h>
 #include <vtkPoints.h>
 #include <vtkLine.h>
+#include <vtkTriangle.h>
 #include <vtkCellArray.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
@@ -341,6 +342,180 @@ void CloudWidget::disableInteraction(){
 }
 void CloudWidget::enableInteraction(){
 	style->setActive(true);
+}
+void CloudWidget::loadPolygonAndCamera(const vector<Point3f> &verts, const vector<Point3i> &faces, const vector<Matx34d> &cameras, bool resetView){
+	disableInteraction();
+	//constants
+	unsigned char red[3] = {255, 0, 0};
+	unsigned char green[3] = {0, 255, 0};
+	unsigned char blue[3] = {0, 0, 255};
+	unsigned char white[3] = {255, 255, 255};
+	unsigned char yellow[3] = {255, 255, 0};
+
+	//insert points to vtk data structure
+	// Create the geometry of a point (the coordinate)
+	vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+	// Create the topology of the point (a vertex)
+	vtkSmartPointer<vtkCellArray> vertices = vtkSmartPointer<vtkCellArray>::New();
+	// Create the topology of the line (an edge)
+	vtkSmartPointer<vtkCellArray> edges = vtkSmartPointer<vtkCellArray>::New();
+	// Create the topology of the triangle
+	vtkSmartPointer<vtkCellArray> triangles = vtkSmartPointer<vtkCellArray>::New();
+	// Create colors
+	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+	colors->SetNumberOfComponents(3);
+	colors->SetName ("Colors");
+
+	//add vertex points
+	numCloudPoints = verts.size();
+	cout<<"numCloudPoints = "<<numCloudPoints<<endl;
+	vtkIdType pid[numCloudPoints];//temp array to store point ids for create vertices
+	for(int i=0; i<numCloudPoints; i++){
+		pid[i] = points->InsertNextPoint(verts[i].x, verts[i].y, verts[i].z);
+	}
+
+	//create vertices from point ids
+	vertices->InsertNextCell(numCloudPoints,pid);
+	int numCells = vertices->GetNumberOfCells();
+	for(int i=0; i<numCells; i++){
+		vtkIdType numOfPoints;
+		vtkIdType *pointIDs;
+		vertices->GetCell(i, numOfPoints,pointIDs);
+		assert(numOfPoints == numCloudPoints);
+	}
+
+	//inert cell color for the vertices
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(white);
+	#else
+		colors->InsertNextTypedTuple(white);
+	#endif
+
+
+	//add camera points & edges
+	for(int n=0; n<cameras.size(); n++){
+		double TRx = cameras[n](0,3);
+		double TRy = cameras[n](1,3);
+		double TRz = cameras[n](2,3);
+
+		double Ix0  = cameras[n](0,0);
+		double Iy0  = cameras[n](0,1);
+		double Iz0  = cameras[n](0,2);
+
+		double Jx0  = cameras[n](1,0);
+		double Jy0  = cameras[n](1,1);
+		double Jz0  = cameras[n](1,2);
+
+		double Kx0  = cameras[n](2,0);
+		double Ky0  = cameras[n](2,1);
+		double Kz0  = cameras[n](2,2);
+
+		double Tx  = -TRx*Ix0 -TRy*Jx0 -TRz*Kx0;
+		double Ty  = -TRx*Iy0 -TRy*Jy0 -TRz*Ky0;
+		double Tz  = -TRx*Iz0 -TRy*Jz0 -TRz*Kz0;
+
+		double Ix  = Tx + cameras[n](0,0);
+		double Iy  = Ty + cameras[n](0,1);
+		double Iz  = Tz + cameras[n](0,2);
+
+		double Jx  = Tx + cameras[n](1,0);
+		double Jy  = Ty + cameras[n](1,1);
+		double Jz  = Tz + cameras[n](1,2);
+
+		double Kx  = Tx + cameras[n](2,0);
+		double Ky  = Ty + cameras[n](2,1);
+		double Kz  = Tz + cameras[n](2,2);
+
+		//create & insert points
+		vtkIdType idT    = points->InsertNextPoint(Tx, Ty, Tz);
+		vtkIdType idI    = points->InsertNextPoint(Ix, Iy, Iz);
+		vtkIdType idJ    = points->InsertNextPoint(Jx, Jy, Jz);
+		vtkIdType idK    = points->InsertNextPoint(Kx, Ky, Kz);
+
+		//create edges
+		vtkSmartPointer<vtkLine> edgeI = vtkSmartPointer<vtkLine>::New();
+		edgeI->GetPointIds()->SetId(0, idT);
+		edgeI->GetPointIds()->SetId(1, idI);
+		vtkSmartPointer<vtkLine> edgeJ = vtkSmartPointer<vtkLine>::New();
+		edgeJ->GetPointIds()->SetId(0, idT);
+		edgeJ->GetPointIds()->SetId(1, idJ);
+		vtkSmartPointer<vtkLine> edgeK = vtkSmartPointer<vtkLine>::New();
+		edgeK->GetPointIds()->SetId(0, idT);
+		edgeK->GetPointIds()->SetId(1, idK);
+
+		//insert edges
+		edges->InsertNextCell(edgeI);
+		edges->InsertNextCell(edgeJ);
+		edges->InsertNextCell(edgeK);
+
+		//insert cell colors for edges
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(red);
+		colors->InsertNextTupleValue(green);
+		colors->InsertNextTupleValue(blue);
+	#else
+		colors->InsertNextTypedTuple(red);
+		colors->InsertNextTypedTuple(green);
+		colors->InsertNextTypedTuple(blue);
+	#endif
+
+	}
+
+
+	//add face triangles
+	for(int i=0; i<faces.size(); i++){
+		vtkSmartPointer<vtkTriangle> triangle = vtkSmartPointer<vtkTriangle>::New();
+		triangle->GetPointIds()->SetId ( 0, faces[i].x );
+		triangle->GetPointIds()->SetId ( 1, faces[i].y );
+		triangle->GetPointIds()->SetId ( 2, faces[i].z );
+		triangles->InsertNextCell(triangle);
+		//insert cell colors for edges
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(yellow);
+	#else
+		colors->InsertNextTypedTuple(yellow);
+	#endif
+	}
+
+
+	  pointsData = vtkPolyData::New();
+	  pointsData->SetPoints(points);
+	  pointsData->SetVerts(vertices);
+	  pointsData->SetLines(edges);
+	  pointsData->SetPolys(triangles);
+	  pointsData->GetCellData()->SetScalars(colors);
+	  //pointsData->GetPointData()->SetScalars(colors);
+
+
+	  idFilter = vtkIdFilter::New();
+	  idFilter->SetInput(pointsData);
+	  idFilter->SetIdsArrayName("OriginalIds");
+	  idFilter->Update();
+
+	  surfaceFilter = vtkDataSetSurfaceFilter::New();
+	  surfaceFilter->SetInputConnection(idFilter->GetOutputPort());
+	  surfaceFilter->Update();
+
+	  vtkPolyData* input = surfaceFilter->GetOutput();
+
+
+	#if VTK_MAJOR_VERSION <= 5
+	  mapper->SetInputConnection(pointsData->GetProducerPort());
+	  //mapper->SetInput(pointsData); //alternative way to set mapper data
+	#else
+	  mapper->SetInputData(input);
+	#endif
+
+	  actor->GetProperty()->SetPointSize(POINT_SIZE);
+	  actor->GetProperty()->SetLineWidth(LINE_WIDTH);
+	  style->SetPoints(input); //note input != pointsdata
+	  //style->SetPoints(pointsData);
+
+	  if(resetView){
+		  renderer->ResetCamera();	//move camera to cloud center
+	  }
+	  enableInteraction();
+
 }
 
 void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<Point3f> &norms, const vector<Matx34d> &cameras, bool resetView){

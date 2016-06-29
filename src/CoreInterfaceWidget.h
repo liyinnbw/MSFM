@@ -67,6 +67,7 @@ class CoreInterfaceWidget: public QWidget
 signals:
 	void projectLoaded();
 	void pointCloudReady(bool resetView);
+	void polygonReady(bool resetView);
 	void matchResultReady(const QList<QPointF> &, const QList<QPointF> &);
 	void KeyFrameReady(const QList<QPointF> &);
 	void nextPairReady(const int, const int);
@@ -79,6 +80,7 @@ public slots:
 	void saveProject(const QString &);
 	void loadProject(const QString &);
 	void loadGPS(const QString &);
+	void loadPolygon(const QString &);
 	void deletePointIdx(const QList<int> idxs);
 	void handleDeletePointIdxFinished();
 	void matchImages(	const int &imgIdx1,
@@ -91,6 +93,7 @@ public:
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
+	void getPolygons(std::vector<cv::Point3f> &verts, std::vector<cv::Point3i> &faces);
 	void getPointNormals(	std::vector<cv::Point3f> &norms);
 	void getCameras(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);

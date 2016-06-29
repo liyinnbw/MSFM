@@ -1145,6 +1145,12 @@ void SFMPipeline::loadGPS(				const std::string			&fname)
 	ProjectIO::readGPS(fname,ptCloud);
 }
 
+void SFMPipeline::loadPolygon(			const std::string			&fname)
+{
+	ProjectIO::readPolygon(fname,poly);
+}
+
+
 #include "ptam/KeyFrame.h"
 #include <cvd/image.h>
 #include <cvd/byte.h>

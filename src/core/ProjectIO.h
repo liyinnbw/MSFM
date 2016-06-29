@@ -14,6 +14,7 @@
 #include <opencv2/core/core.hpp>
 
 class PtCloud;
+class PolygonModel;
 class ProjectIO {
 public:
 	ProjectIO();
@@ -31,6 +32,9 @@ public:
 
 	static void readGPS(		const std::string			&fname,
 								PtCloud						&ptCloud);
+
+	static void readPolygon(	const std::string			&fname,
+								PolygonModel				&poly);
 };
 
 #endif /* PROJECTIO_H_ */

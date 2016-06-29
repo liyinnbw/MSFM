@@ -23,6 +23,7 @@ src/core/ProjectIO.cpp
 src/CoreInterfaceWidget.cpp
 src/core/Utils.cpp
 src/core/PtCloud.cpp
+src/core/PolygonModel.cpp
 src/core/PathReader.cpp
 src/core/BAHandler.cpp
 src/core/SFMPipeline.cpp
@@ -38,6 +39,7 @@ src/core/ProjectIO.h
 src/core/SFMPipeline.h
 src/core/Utils.h
 src/core/PtCloud.h
+src/core/PolygonModel.h
 src/core/PathReader.h
 src/core/BAHandler.h
 src/core/ba/colamd.h

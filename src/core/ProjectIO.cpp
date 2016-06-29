@@ -14,6 +14,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include "ProjectIO.h"
 #include "PtCloud.h"
+#include "PolygonModel.h"
 #include "PathReader.h"
 #include "Utils.h"
 
@@ -946,4 +947,50 @@ void ProjectIO::readGPS(	const std::string			&fname,
 			cout<<setprecision(20)<<ptCloud.imgs[it->first]<<" ("<<it->second.first<<","<<it->second.second<<")"<<endl;
 		}
 	}
+}
+void ProjectIO::readPolygon(	const std::string			&fname,
+								PolygonModel				&poly)
+{
+	cout<<"reading polydata"<<endl;
+	poly.reset();
+	ifstream infile(fname.c_str());
+	string line;
+	int numVerts	= 0;
+	int numFaces	= 0;
+	while (getline(infile, line)){
+		istringstream iss(line);
+		string s;
+		iss>>s;
+		if(s.compare("element")==0){
+			iss>>s;
+			if(s.compare("vertex")==0){
+				iss>>numVerts;
+			}else if(s.compare("face")==0){
+				iss>>numFaces;
+			}
+		}
+		if(s.compare("end_header")==0){
+			break;
+		}
+	}
+
+	poly.verts.reserve(numVerts);
+	poly.faces.reserve(numFaces);
+	for(int i=0; i<numVerts; i++){
+		getline(infile, line);
+		istringstream iss(line);
+		float x,y,z;
+		iss>>x>>y>>z;
+		poly.verts.push_back(Point3f(x,y,z));
+	}
+	cout<<poly.verts.size()<<" vertices read"<<endl;
+	for(int i=0; i<numFaces; i++){
+		getline(infile, line);
+		istringstream iss(line);
+		int cnt, a,b,c;
+		iss>>cnt>>a>>b>>c;
+		poly.faces.push_back(Point3i(a,b,c));
+	}
+	cout<<poly.faces.size()<<" faces read"<<endl;
+	infile.close();
 }
