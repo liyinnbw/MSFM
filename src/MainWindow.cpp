@@ -535,7 +535,7 @@ void MainWindow::saveFileAs(){
 	QString ext;
 	QString fileName = fd.getSaveFileName(this,
 	        tr("Save Project"), "/home/yoyo/Desktop/data/save",
-	        tr("TINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)"), &ext);
+	        tr("TINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)\nSKTXT files (*.sktxt)"), &ext);
 
 	if (!fileName.isEmpty()){
 		if(ext=="TINY files (*.tiny)"){
@@ -546,6 +546,8 @@ void MainWindow::saveFileAs(){
 			fileName+=".yaml";
 		}else if(ext=="NVM files (*.nvm)"){
 			fileName+=".nvm";
+		}else if(ext=="SKTXT files (*.sktxt)"){
+			fileName+=".sktxt";
 		}
 		cout<<"saving file: "<<fileName.toStdString()<<endl;
 		coreInterface -> saveProject(fileName);

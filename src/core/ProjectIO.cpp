@@ -287,6 +287,66 @@ void ProjectIO::writeProject(	const string			&fname,
 
 		myfile.close();
 	}
+	//if .sktxt
+	else if(Utils::endsWith(fname,".sktxt")){
+		ofstream myfile;
+		myfile.open (filename.c_str());
+
+		myfile<<"root: "<<"<put images folder here and don't forget the last slash>"<<endl;
+		myfile<<"cameras: "<<ptCloud.camMats.size()<<endl;
+
+		for(int i=0; i<ptCloud.camMats.size(); i++){
+			int imgIdx;
+			ptCloud.getImageIdxByCameraIdx(i, imgIdx);
+			string imgName = ptCloud.imgs[imgIdx];
+			double f = camIntrinsicMat.at<double>(0,0);
+			double imghalfh = camIntrinsicMat.at<double>(1,2);
+			double fov = (atan (imghalfh/f) * 180 / M_PI)*2;
+			const Matx34d & cam = ptCloud.camMats[i];
+			double TRx = cam(0,3);
+			double TRy = cam(1,3);
+			double TRz = cam(2,3);
+
+			double Ix0  = cam(0,0);
+			double Iy0  = cam(0,1);
+			double Iz0  = cam(0,2);
+
+			double Jx0  = cam(1,0);
+			double Jy0  = cam(1,1);
+			double Jz0  = cam(1,2);
+
+			double Kx0  = cam(2,0);
+			double Ky0  = cam(2,1);
+			double Kz0  = cam(2,2);
+
+			double Tx  = -TRx*Ix0 -TRy*Jx0 -TRz*Kx0;
+			double Ty  = -TRx*Iy0 -TRy*Jy0 -TRz*Ky0;
+			double Tz  = -TRx*Iz0 -TRy*Jz0 -TRz*Kz0;
+
+			double Ix  = Tx + cam(0,0);
+			double Iy  = Ty + cam(0,1);
+			double Iz  = Tz + cam(0,2);
+
+			double Jx  = Tx + cam(1,0);
+			double Jy  = Ty + cam(1,1);
+			double Jz  = Tz + cam(1,2);
+
+			double Kx  = Tx + Kx0;
+			double Ky  = Ty + Ky0;
+			double Kz  = Tz + Kz0;
+
+			myfile<<imgName<<" "<<Tx<<" "<<Ty<<" "<<Tz<<" "<<Kx<<" "<<Ky<<" "<<Kz<<" "<<-Jx0<<" "<<-Jy0<<" "<<-Jz0<<" "<<fov<<endl;
+
+		}
+		vector<cv::Point3f> pts;
+		ptCloud.getXYZs(pts);
+		myfile<<"points: "<<pts.size()<<endl;
+		for(int i=0; i<pts.size(); i++){
+			myfile<<pts[i].x<<" "<<pts[i].y<<" "<<pts[i].z<<endl;
+		}
+
+		myfile.close();
+	}
 }
 
 void ProjectIO::readProject(	const string			&fname,				//including root
