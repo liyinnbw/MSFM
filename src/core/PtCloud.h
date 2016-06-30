@@ -131,9 +131,6 @@ public:
 
 	void ApplyGlobalTransformation(const cv::Mat 				&transfMat);
 
-	void transformPoints(			const cv::Mat 				&transfMat,
-									std::vector<cv::Point3f>	&xyzs);
-
 	bool getImageIdxByCameraIdx(const int camIdx, int &imgIdx) const;
 
 	bool getImageGPS(const int imgIdx, double &lat, double &lon) const;

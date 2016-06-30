@@ -10,7 +10,7 @@
 #include <QWidget>
 #include <QVTKWidget.h>
 #include <QList>
-
+#include <QVector3D>
 #include <opencv2/core/core.hpp>
 
 class vtkPolyDataMapper;
@@ -36,7 +36,7 @@ signals:
 
 public slots:
 	void highlightPointIdx(const QList<int> idxs, const int camIdx);
-
+	void highlightPoints(const QList<QVector3D> &xyzs, const int camIdx);
 	
 public:
 	CloudWidget(QWidget *parent = 0);
@@ -45,6 +45,7 @@ public:
 	//void loadCloud(const std::vector<cv::Point3f> &xyzs);
 	void loadCloudAndCamera(const std::vector<cv::Point3f> &xyzs, const std::vector<cv::Point3f> &norms, const std::vector<cv::Matx34d> &cams, bool resetView);
 	void loadPolygonAndCamera(const std::vector<cv::Point3f> &verts, const std::vector<cv::Point3i> &faces, const std::vector<cv::Matx34d> &cams, bool resetView);
+
 	const static int 			POINT_SIZE = 3;
 	const static int 			LINE_WIDTH = 2;
 	int 						numCloudPoints;

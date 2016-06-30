@@ -67,6 +67,9 @@ void VisibleImagesPanel::setVisibleImagesAndMeasures( 	const vector<vector<pair<
 	imageTileView->setImages(imgRoot, visibleImgs);
 	imageTileView->setMarks(marks);
 }
+
+//slot functions
+
 void VisibleImagesPanel::deleteMeasures(){
 	QList<TileMark> selectedMarks;
 	imageTileView->getSelectedMarks(selectedMarks);

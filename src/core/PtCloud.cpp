@@ -6,6 +6,7 @@
  */
 
 #include "PtCloud.h"
+#include "Utils.h"
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
 using namespace std;
@@ -630,20 +631,6 @@ void PtCloud::getMeasuresToPoints(		const std::vector<int> 					&pt3DIdxs,
 		pt3D2pt2Ds.push_back(pt2Ds);
 	}
 }
-void PtCloud::transformPoints(		const Mat 			&transfMat,
-									vector<Point3f>		&xyzs)
-{
-	Mat pts4DMat; //4 channels type 29
-	convertPointsToHomogeneous(xyzs, pts4DMat);
-	pts4DMat = pts4DMat.reshape(1);		//convert to 1 channel, type 5, efficiency O(1)
-	pts4DMat = pts4DMat.t();
-	Mat tmpMat;
-	transfMat.convertTo(tmpMat,pts4DMat.type());
-	pts4DMat = tmpMat*pts4DMat;			//transform 3D points, results in 3*N mat
-	pts4DMat = pts4DMat.t();
-	pts4DMat = pts4DMat.reshape(3);		//convert to 3 channels so that you can copy to vector of points
-	pts4DMat.copyTo(xyzs);
-}
 
 void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 
@@ -659,7 +646,7 @@ void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 	}
 
 	//transform 3d points
-	transformPoints(transfMat, xyzs);
+	Utils::transformPoints(transfMat, xyzs);
 	assert(xyzs.size() == pt3Ds.size());
 	for(int i=0; i<xyzs.size(); i++){
 		pt3Ds[i].pt = xyzs[i];
@@ -668,7 +655,7 @@ void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 
 	if(hasPointNormal){
 		//transform normals
-		transformPoints(transfMat, normals);
+		Utils::transformPoints(transfMat, normals);
 		assert(normals.size() == pt3Ds.size());
 		for(int i=0; i<normals.size(); i++){
 			pt3Ds[i].norm = normals[i]-pt3Ds[i].pt;

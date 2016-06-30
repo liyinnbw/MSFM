@@ -271,6 +271,41 @@ void CloudWidget::deletePoints(const QList<int> idxs){
 void CloudWidget::showCameras(const QList<int> idxs){
 	emit showCamerasSeeingPoints(idxs);
 }
+void CloudWidget::highlightPoints(const QList<QVector3D> &xyzs, const int camIdx){
+	if(pointsData == NULL) return;
+	vtkSmartPointer<vtkPoints> points = pointsData->GetPoints();
+	QList<int> idxs;
+	vtkIdType pids[xyzs.size()];
+	for(int i=0; i<xyzs.size(); i++){
+		vtkIdType pid = points->InsertNextPoint(xyzs[i].x(), xyzs[i].y(), xyzs[i].z());
+		idxs.push_back((int) pid);
+		pids[i] = pid;
+	}
+	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
+	vtkIdType newVertsCellId = vertices->InsertNextCell(idxs.size(),pids);
+	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkUnsignedCharArray::SafeDownCast(pointsData->GetCellData()->GetScalars("Colors"));
+	unsigned char highlightColor[3] = {Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255)};	//random color
+	//just to add a new tuple, value doesnt matter
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertNextTupleValue(highlightColor);
+	#else
+		colors->InsertNextTypedTuple(highlightColor);
+	#endif
+
+	//shift tuples with idx>= 1 to the right by 1
+	for(int j=colors->GetNumberOfTuples()-1; j>newVertsCellId; j--){
+		colors->InsertTuple(j,colors->GetTuple(j-1));
+	}
+
+	//add the new tuple to idx 1
+	#if VTK_MAJOR_VERSION < 7
+		colors->InsertTupleValue(newVertsCellId, highlightColor);
+	#else
+		colors->InsertTypedTuple(newVertsCellId, highlightColor);
+	#endif
+
+	//highlightPointIdx(idxs, camIdx);
+}
 void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
 	if(pointsData == NULL) return;
 	//cout<<idxs.size()<<" points seen by camera "<<camIdx<<endl;

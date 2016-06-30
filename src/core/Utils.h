@@ -36,6 +36,9 @@ public:
 									std::vector<int> &idxs1,
 									std::vector<int> &idxs2);
 
+	static void transformPoints(		const cv::Mat 				&transfMat,
+										std::vector<cv::Point3f>	&xyzs);
+
 	static void getTimeStampAsString(std::string &tstmp);
 
 	static int getRandomInt(const int Min, const int Max);

@@ -18,8 +18,8 @@ class QToolBar;
 class CoreInterfaceWidget;
 class MatchPanel;
 
-//class KeyFramePanel;
-//class KeyFrameModel;
+class KeyFramePanel;
+class KeyFrameModel;
 class QString;
 class QLineEdit;
 
@@ -50,12 +50,14 @@ private slots:
 	void handleDense();
 	void displayPointCloud(bool resetView);
 	void displayPolygon(bool resetView);
+	void handleKeyFramePanelImageChange(int imgIdx);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
 	void handleNormalRenderToggle();
 	void handlePolygonRenderToggle();
 	void handleDeleteCamera();
 	void handleMinSpanCamera();
+	void handleKeyframeImagePointsSelected(const int imgIdx, const QList<QPointF> &pts);
 
 private:
     void createWidgets();
@@ -94,12 +96,13 @@ private:
 	VisibleImagesPanel		*visibleImagesPanel;
 	MatchPanelModel 		*matchPanelModel;
 	QLineEdit				*commandBox;
-	//KeyFramePanel			*keyframePanel;
-	//KeyFrameModel			*keyframeModel;
+	KeyFramePanel			*keyframePanel;
+	KeyFrameModel			*keyframeModel;
 
 	QString 				imageRoot;
 	bool					showNormal;
 	bool					showPolygon;
+	int						keyframeSelectedImgIdx;
 };
 
 #endif

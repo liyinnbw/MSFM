@@ -1019,6 +1019,24 @@ void SFMPipeline::pruneHighReprojectionErrorPoints(){
 
 }
 
+void SFMPipeline::projectImagePointsTo3DSurface(const int						imgIdx,
+												const vector<Point2f>			&xys,
+												vector<Point3f>					&xyzs,
+												vector<Point3f>					&norms,
+												vector<bool>					&status)
+{
+	xyzs.clear();
+	norms.clear();
+	status.clear();
+	if(!ptCloud.imageIsUsed(imgIdx)){
+		status = vector<bool>(xys.size(), false);
+		return;
+	}
+	int camIdx = ptCloud.img2camMat[imgIdx];
+	poly.getPointsIntersectingSurface(ptCloud.camMats[camIdx], camMat, distortionMat, xys, xyzs, norms, status);
+
+}
+
 void SFMPipeline::keepMinSpanCameras(){
 	cout<<"keep min number of cameras covering all points"<<endl;
 	int ptsCovered 	= 0;
@@ -1150,6 +1168,17 @@ void SFMPipeline::loadPolygon(			const std::string			&fname)
 	ProjectIO::readPolygon(fname,poly);
 }
 
+void SFMPipeline::getVisiblePolygons(	const int						imgIdx,
+										std::vector<Point3f> 			&verts,
+										std::vector<Point3i> 			&faces)
+{
+	if(ptCloud.imageIsUsed(imgIdx)){
+		int camIdx = ptCloud.img2camMat[imgIdx];
+		poly.getVisiblePolygons(ptCloud.camMats[camIdx], camMat, distortionMat, verts,faces);
+	}else{
+		poly.getPolygons(verts,faces);
+	}
+}
 
 #include "ptam/KeyFrame.h"
 #include <cvd/image.h>

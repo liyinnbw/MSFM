@@ -7,6 +7,7 @@
 
 #include "Utils.h"
 #include <iostream>
+#include <opencv2/calib3d/calib3d.hpp>
 
 using namespace std;
 using namespace cv;
@@ -61,6 +62,21 @@ void Utils::Matches2Indices(	const std::vector<cv::DMatch> &matches,
 		idxs1.push_back(matches[i].queryIdx);
 		idxs2.push_back(matches[i].trainIdx);
 	}
+}
+
+void Utils::transformPoints(		const Mat 			&transfMat,
+									vector<Point3f>		&xyzs)
+{
+	Mat pts4DMat; //4 channels type 29
+	convertPointsToHomogeneous(xyzs, pts4DMat);
+	pts4DMat = pts4DMat.reshape(1);		//convert to 1 channel, type 5, efficiency O(1)
+	pts4DMat = pts4DMat.t();
+	Mat tmpMat;
+	transfMat.convertTo(tmpMat,pts4DMat.type());
+	pts4DMat = tmpMat*pts4DMat;			//transform 3D points, results in 3*N mat
+	pts4DMat = pts4DMat.t();
+	pts4DMat = pts4DMat.reshape(3);		//convert to 3 channels so that you can copy to vector of points
+	pts4DMat.copyTo(xyzs);
 }
 
 void Utils::getTimeStampAsString(std::string &tstmp){

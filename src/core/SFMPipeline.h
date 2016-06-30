@@ -126,6 +126,13 @@ public:
 								float							&meanError,
 								cv::Mat							&isGood);
 
+	void projectImagePointsTo3DSurface(
+								const int						imgIdx,
+								const std::vector<cv::Point2f>	&xys,
+								std::vector<cv::Point3f>		&xyzs,
+								std::vector<cv::Point3f>		&norms,
+								std::vector<bool>				&status);
+
 	void computeMeanReprojectionError();
 
 	void removeNearAndFar3DPoints();
@@ -155,6 +162,10 @@ public:
 	void loadGPS(				const std::string				&fname);
 
 	void loadPolygon(			const std::string				&fname);
+
+	void getVisiblePolygons(	const int 						imgIdx,
+								std::vector<cv::Point3f> 		&verts,
+								std::vector<cv::Point3i> 		&faces);
 
 	double getCamFocal();
 	cv::Point2d getCamPrinciple();

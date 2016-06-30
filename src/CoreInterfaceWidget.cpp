@@ -442,6 +442,19 @@ void CoreInterfaceWidget::getPolygons(vector<Point3f> &verts, vector<Point3i> &f
 	}
 	core-> poly.getPolygons(verts, faces);
 }
+void CoreInterfaceWidget::getVisiblePolygons(const int imgIdx, vector<Point3f> &verts, vector<Point3i> &faces){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core-> getVisiblePolygons(imgIdx, verts, faces);
+}
 void CoreInterfaceWidget::getPointNormals(	vector<cv::Point3f> &norms){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
@@ -618,4 +631,39 @@ void CoreInterfaceWidget::ApplyGlobalTransformation(const std::vector<double> &t
 
 	core->ptCloud.ApplyGlobalTransformation(Mat(transfMat));
 	emit pointCloudReady(true);	//need to reset camera view
+}
+
+void CoreInterfaceWidget::projectImagePointsTo3DSurface(	const int 						imgIdx,
+															const QList<QPointF> 			&xys,
+															QList<QVector3D>				&xyzs,
+															QList<QVector3D>				&norms,
+															vector<bool>					&status)
+{
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","project is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface project image points to 3d surface"<<endl;
+	vector<Point2f> pt2Ds;
+	vector<Point3f> pt3Ds;
+	vector<Point3f> normals;
+	pt2Ds.reserve(xys.size());
+	for(int i=0; i<xys.size(); i++){
+		pt2Ds.push_back(Point2f(xys[i].x(),xys[i].y()));
+	}
+	core->projectImagePointsTo3DSurface(imgIdx, pt2Ds, pt3Ds, normals, status);
+
+	for(int i=0; i<pt3Ds.size(); i++){
+		xyzs.push_back(QVector3D(pt3Ds[i].x,pt3Ds[i].y,pt3Ds[i].z));
+	}
+	for(int i=0; i<normals.size(); i++){
+		norms.push_back(QVector3D(normals[i].x,normals[i].y,normals[i].z));
+	}
+
 }

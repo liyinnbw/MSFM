@@ -19,6 +19,7 @@ class SFMPipeline;
 class QString;
 class QImage;
 class QPointF;
+class QVector3D;
 struct KeyFrame;
 class TaskThread : public QThread
 {
@@ -39,7 +40,9 @@ public:
 										const QList<bool> 				&mask);
 
 	//Getters
-	void getImagePair(int &imgIdx1, int &imgIdx2);
+	void getImagePair(					int 							&imgIdx1,
+										int 							&imgIdx2);
+
 
 	const static int TASK_NONE 			= 0;
 	const static int TASK_RECONSTRUCT 	= 1;
@@ -94,6 +97,7 @@ public:
 	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
 	void getPolygons(std::vector<cv::Point3f> &verts, std::vector<cv::Point3i> &faces);
+	void getVisiblePolygons(const int imgIdx, std::vector<cv::Point3f> &verts, std::vector<cv::Point3i> &faces);
 	void getPointNormals(	std::vector<cv::Point3f> &norms);
 	void getCameras(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
@@ -118,6 +122,12 @@ public:
 								std::vector<std::vector<std::pair<int,int> > >		&pt3D2Measures,
 								std::vector<std::vector<QPointF> > 					&pt3D2pt2Ds);
 	void ApplyGlobalTransformation(const std::vector<double> &transformation);
+
+	void projectImagePointsTo3DSurface(		const int 						imgIdx,
+											const QList<QPointF> 			&xys,
+											QList<QVector3D>				&xyzs,
+											QList<QVector3D>				&norms,
+											std::vector<bool>				&status);
 private:
 	SFMPipeline 				*core;
 	TaskThread 					*tt;

@@ -91,6 +91,7 @@ void ImageWidget::setMarks(const QList<QPointF> &_marks,  const QList<bool> &_ma
 	mask =_mask;
 	marks=_marks;
 	update();
+	emit pointsMarked(marks);
 }
 //setter
 void ImageWidget::setSelected(const int matchIdx){
@@ -169,6 +170,15 @@ void ImageWidget::mousePressEvent(QMouseEvent *event){
 void ImageWidget::mouseReleaseEvent(QMouseEvent *event){
 	selectWinEnd  = event->posF();
 	showSelectWin = false;
+	update();
+}
+void ImageWidget::mouseDoubleClickEvent(QMouseEvent *event){
+	QPointF p = event->posF()/zoom;
+	QList<QPointF> _marks;
+	QList<bool> _mask;
+	_marks.push_back(p);
+	_mask.push_back(true);
+	setMarks(_marks, _mask);
 	update();
 }
 void ImageWidget::keyPressEvent (QKeyEvent *event){

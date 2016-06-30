@@ -17,8 +17,8 @@
 #include "MatchPanel.h"
 #include "VisibleImagesPanel.h"
 #include "MatchPanelModel.h"
-//#include "KeyFramePanel.h"
-//#include "KeyFrameModel.h"
+#include "KeyFramePanel.h"
+#include "KeyFrameModel.h"
 #include "core/PathReader.h"
 #include "core/Utils.h"
 
@@ -53,12 +53,13 @@ void MainWindow::createWidgets()
 	visibleImagesPanel 	= new VisibleImagesPanel;
 	matchPanelModel 	= new MatchPanelModel;
 	commandBox			= new QLineEdit;
-	//keyframePanel 	= new KeyFramePanel;
-	//keyframeModel 	= new KeyFrameModel(coreInterface);
+	keyframePanel 		= new KeyFramePanel;
+	keyframeModel 		= new KeyFrameModel(coreInterface);
 
 	QTabWidget 	*tabs	= new QTabWidget;
 	tabs->addTab(matchPanel, tr("MatchPanel"));
 	tabs->addTab(visibleImagesPanel, tr("VisibleImages"));
+	tabs->addTab(keyframePanel, tr("SurfaceProjection"));
 
 	QSplitter *splitter =  new QSplitter;
 	splitter->setOrientation(Qt::Horizontal);
@@ -76,6 +77,8 @@ void MainWindow::createWidgets()
 
 	setCentralWidget(centralWidget);
 	setGeometry(0, 0, 1000, 800);
+
+	keyframeSelectedImgIdx = -1;
 }
 
 void MainWindow::createActions()
@@ -216,9 +219,12 @@ void MainWindow::connectWidgets(){
 	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), this, SLOT(highlightPoints(const int, const int)));
 	connect(matchPanel, SIGNAL(imageChanged(const int, const int)), matchPanelModel, SLOT(setImages(const int, const int)));
 	connect(visibleImagesPanel, SIGNAL(deleteSelectedMeasures(const QList<QPair<int,int> > &)), this, SLOT(handleDeleteMeasures(const QList<QPair<int,int> > &)));
-	//connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
-	//connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
-	//connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
+	connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
+	connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
+	connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
+	connect(keyframePanel, SIGNAL(imagePointsSelected(const int, const QList<QPointF> &)), this, SLOT(handleKeyframeImagePointsSelected(const int, const QList<QPointF> &)));
+	connect(keyframePanel, SIGNAL(imageChanged(int)), this, SLOT(handleKeyFramePanelImageChange(int)));
+
 }
 
 // Slot functions
@@ -229,7 +235,7 @@ void MainWindow::handleProjectLoaded(){
 	coreInterface->getImagePaths(imgRoot, imgList);
 	matchPanel->setImagePaths(imgRoot, imgList);
 	visibleImagesPanel->setImagePaths(imgRoot, imgList);
-	//keyframePanel->setImagePaths(imgRoot, imgList);
+	keyframePanel->setImagePaths(imgRoot, imgList);
 }
 
 void MainWindow::handleFeatureMatch(){
@@ -349,6 +355,34 @@ void MainWindow::handleDense(){
 	statusBar()->showMessage(tr("dense reconstructing points..."));
 	coreInterface->denseReconstruct();
 }
+
+void MainWindow::handleKeyframeImagePointsSelected(const int imgIdx, const QList<QPointF> &pts){
+	statusBar()->showMessage(tr("project points to 3d surface..."));
+	QList<QVector3D> xyzs;
+	QList<QVector3D> norms;
+	vector<bool> status;
+	coreInterface->projectImagePointsTo3DSurface(imgIdx,pts,xyzs,norms,status);
+
+	QList<QVector3D> intersects;
+	for(int i=0; i<xyzs.size(); i++){
+		if(status[i]){
+			intersects.push_back(xyzs[i]);
+		}
+	}
+
+	//to reset previous highlights
+	if(showPolygon){
+		displayPolygon(false);
+	}else{
+		displayPointCloud(false);
+	}
+
+	int camIdx;
+	coreInterface->getCameraIdx(imgIdx,camIdx);
+	cloudViewer->highlightPoints(intersects, camIdx);
+	cout<<intersects.size()<<" intersections found"<<endl;
+
+}
 void MainWindow::handleLineCommand(){
 	QString s = commandBox->text();
 	commandBox->clear();
@@ -466,11 +500,18 @@ void MainWindow::displayPolygon(bool resetView){
 	statusBar()->showMessage(tr("refreshing polygon..."));
 	vector<Point3f> verts;
 	vector<Point3i> faces;
-	coreInterface->getPolygons(verts, faces);
+	//coreInterface->getPolygons(verts, faces);
+
+	coreInterface->getVisiblePolygons(-1, verts, faces); // keyframeSelectedImgIdx
 	vector<Matx34d> cams;
 	coreInterface->getCameras(cams);
 	cloudViewer->loadPolygonAndCamera(verts, faces, cams, resetView);
 	statusBar()->showMessage(tr("polygon refreshed"));
+}
+void MainWindow::handleKeyFramePanelImageChange(int imgIdx){
+
+	keyframeSelectedImgIdx = imgIdx;
+
 }
 void MainWindow::handleNormalRenderToggle(){
 	showNormal = !showNormal;
@@ -562,7 +603,7 @@ void MainWindow::openDirectory(){
 	 coreInterface 	->setImagePaths(imageRoot, imageList);
 	 matchPanel		->setImagePaths(imageRoot, imageList);
 	 visibleImagesPanel		->setImagePaths(imageRoot, imageList);
-	 //keyframePanel 	->setImagePaths(imageRoot, imageList);
+	 keyframePanel 	->setImagePaths(imageRoot, imageList);
 
 }
 
