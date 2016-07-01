@@ -155,7 +155,8 @@ public:
 	void readPLY(				const std::string 				&path,
 								std::vector<cv::Point3f> 		&xyzs);
 
-	void saveProject(			const std::string 				&fname);
+	void saveProject(			const std::string 				&fname,
+								const int						cloudIdx);
 
 	void loadProject(			const std::string				&fname);
 
@@ -172,6 +173,7 @@ public:
 	int getCloudSize(){return ptCloud.pt3Ds.size();}
 
 	PtCloud ptCloud; //contains more than just 3d cloud, see declaration
+	PtCloud ptCloud2;	//additional point cloud to store surface projected points
 	PolygonModel poly;
 
 	double camFocal;

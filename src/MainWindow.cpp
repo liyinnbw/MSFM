@@ -48,6 +48,7 @@ void MainWindow::createWidgets()
 
 
 	cloudViewer 		= new CloudWidget;
+	cloudViewer2		= new CloudWidget;
 	coreInterface 		= new CoreInterfaceWidget;
 	matchPanel 			= new MatchPanel;
 	visibleImagesPanel 	= new VisibleImagesPanel;
@@ -56,17 +57,21 @@ void MainWindow::createWidgets()
 	keyframePanel 		= new KeyFramePanel;
 	keyframeModel 		= new KeyFrameModel(coreInterface);
 
-	QTabWidget 	*tabs	= new QTabWidget;
+	tabs				= new QTabWidget;
 	tabs->addTab(matchPanel, tr("MatchPanel"));
 	tabs->addTab(visibleImagesPanel, tr("VisibleImages"));
 	tabs->addTab(keyframePanel, tr("SurfaceProjection"));
+
+	tabs2				= new QTabWidget;
+	tabs2->addTab(cloudViewer, tr("CloudViewer1"));
+	tabs2->addTab(cloudViewer2, tr("CloudViewer2"));
 
 	QSplitter *splitter =  new QSplitter;
 	splitter->setOrientation(Qt::Horizontal);
 
 	splitter->addWidget(tabs);
 	//splitter->addWidget(keyframePanel);
-	splitter->addWidget(cloudViewer);
+	splitter->addWidget(tabs2);
 
 	QVBoxLayout  *vl= new QVBoxLayout;
 	vl->addWidget(splitter);
@@ -146,6 +151,10 @@ void MainWindow::createActions()
 	denseAction->setStatusTip(tr("Dense reconstruction using reovered camera poses"));
 	connect(denseAction, SIGNAL(triggered()), this, SLOT(handleDense()));
 
+	addKeyFrameAction = new QAction(tr("&Add Keyframe"),this);
+	addKeyFrameAction->setStatusTip(tr("Add Keyframe to cloud viewer 2"));
+	connect(addKeyFrameAction, SIGNAL(triggered()), this, SLOT(handleAddKeyFrame()));
+
 	//keyframeAction = new QAction(tr("&KeyFrame"),this);
 	//keyframeAction->setStatusTip(tr("Compute KeyFrame"));
 	//connect(keyframeAction, SIGNAL(triggered()), keyframePanel, SLOT(computeKeyFrame()));
@@ -197,7 +206,9 @@ void MainWindow::createToolBars()
 	sfmToolBar->addAction(removeBadAction);
 	sfmToolBar->addAction(removeCameraAction);
 	sfmToolBar->addAction(minSpanCamerasAction);
+	sfmToolBar->addAction(addKeyFrameAction);
 	sfmToolBar->addAction(denseAction);
+
 
 	//ptamToolBar = addToolBar(tr("PTAM"));
 	//ptamToolBar->addAction(keyframeAction);
@@ -211,6 +222,7 @@ void MainWindow::connectWidgets(){
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
 	connect(cloudViewer, SIGNAL(showCamerasSeeingPoints(const QList<int>)), this, SLOT(handleShowCamerasSeeingPoints(const QList<int>)));
 	connect(coreInterface, SIGNAL(pointCloudReady(bool)), this, SLOT(displayPointCloud(bool)));
+	connect(coreInterface, SIGNAL(pointCloud2Ready(bool)), this, SLOT(displayPointCloud2(bool)));
 	connect(coreInterface, SIGNAL(polygonReady(bool)), this, SLOT(displayPolygon(bool)));
 	connect(matchPanelModel, SIGNAL(matchChanged(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)), matchPanel, SLOT(updateViews(const QList<QPointF> &, const QList<QPointF> &, const QList<bool> &)));
 	connect(coreInterface, SIGNAL(matchResultReady(const QList<QPointF> &, const QList<QPointF> &)), matchPanelModel, SLOT(setMatches(const QList<QPointF> &, const QList<QPointF> &)));
@@ -382,6 +394,12 @@ void MainWindow::handleKeyframeImagePointsSelected(const int imgIdx, const QList
 	cloudViewer->highlightPoints(intersects, camIdx);
 	cout<<intersects.size()<<" intersections found"<<endl;
 
+	mImgIdx = imgIdx;
+	mxys 	= pts;
+	mxyzs	= xyzs;
+	mnorms	= norms;
+	mstatus = status;
+
 }
 void MainWindow::handleLineCommand(){
 	QString s = commandBox->text();
@@ -495,6 +513,19 @@ void MainWindow::displayPointCloud(bool resetView){
 	statusBar()->showMessage(tr("image list updated"));
 
 }
+void MainWindow::displayPointCloud2(bool resetView){
+	statusBar()->showMessage(tr("refreshing cloud2..."));
+	vector<Point3f> xyzs, norms;
+	coreInterface->getPointCloud2(xyzs);
+	if(showNormal){
+		coreInterface->getPointNormals2(norms);
+	}
+	vector<Matx34d> cams;
+	coreInterface->getCameras2(cams);
+	cloudViewer2->loadCloudAndCamera(xyzs, norms, cams, resetView);
+	statusBar()->showMessage(tr("cloud2 refreshed"));
+
+}
 void MainWindow::displayPolygon(bool resetView){
 	showPolygon = true;
 	statusBar()->showMessage(tr("refreshing polygon..."));
@@ -515,7 +546,12 @@ void MainWindow::handleKeyFramePanelImageChange(int imgIdx){
 }
 void MainWindow::handleNormalRenderToggle(){
 	showNormal = !showNormal;
-	displayPointCloud(false);
+	int cloudViewerIdx = tabs2->currentIndex();
+	if(cloudViewerIdx == 0){
+		displayPointCloud(false);
+	}else if(cloudViewerIdx == 1){
+		displayPointCloud2(false);
+	}
 }
 void MainWindow::handlePolygonRenderToggle(){
 	showPolygon = !showPolygon;
@@ -524,6 +560,10 @@ void MainWindow::handlePolygonRenderToggle(){
 	}else{
 		displayPointCloud(false);
 	}
+}
+void MainWindow::handleAddKeyFrame(){
+	statusBar()->showMessage(tr("adding keyframe..."));
+	coreInterface->addKeyFrame(mImgIdx, mxys, mxyzs, mnorms, mstatus);
 }
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	displayPointCloud(false);	//to reset previous highlights just reload the point cloud
@@ -630,7 +670,7 @@ void MainWindow::saveFileAs(){
 			fileName+=".sktxt";
 		}
 		cout<<"saving file: "<<fileName.toStdString()<<endl;
-		coreInterface -> saveProject(fileName);
+		coreInterface -> saveProject(fileName, tabs2->currentIndex());
 	}
 
 }

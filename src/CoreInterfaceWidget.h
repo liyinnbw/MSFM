@@ -70,6 +70,7 @@ class CoreInterfaceWidget: public QWidget
 signals:
 	void projectLoaded();
 	void pointCloudReady(bool resetView);
+	void pointCloud2Ready(bool resetView);
 	void polygonReady(bool resetView);
 	void matchResultReady(const QList<QPointF> &, const QList<QPointF> &);
 	void KeyFrameReady(const QList<QPointF> &);
@@ -80,7 +81,7 @@ public slots:
 	void handleReconstructFinished();
 	void bundleAdjust();
 	void handleBundleAdjustFinished();
-	void saveProject(const QString &);
+	void saveProject(const QString &, const int);
 	void loadProject(const QString &);
 	void loadGPS(const QString &);
 	void loadPolygon(const QString &);
@@ -96,10 +97,13 @@ public:
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void getImagePaths(QString &root, QList<QString> &list);
 	void getPointCloud(	std::vector<cv::Point3f> &xyzs);
+	void getPointCloud2(	std::vector<cv::Point3f> &xyzs);
 	void getPolygons(std::vector<cv::Point3f> &verts, std::vector<cv::Point3i> &faces);
 	void getVisiblePolygons(const int imgIdx, std::vector<cv::Point3f> &verts, std::vector<cv::Point3i> &faces);
 	void getPointNormals(	std::vector<cv::Point3f> &norms);
+	void getPointNormals2(	std::vector<cv::Point3f> &norms);
 	void getCameras(std::vector<cv::Matx34d> &cams);
+	void getCameras2(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
 	void getAll3DfromImage2D(	const int 					imgIdx,
 								std::vector<cv::Point3f>	&pts3D,
@@ -128,6 +132,12 @@ public:
 											QList<QVector3D>				&xyzs,
 											QList<QVector3D>				&norms,
 											std::vector<bool>				&status);
+
+	void addKeyFrame(						const int 						imgIdx,
+											const QList<QPointF> 			&xys,
+											const QList<QVector3D>			&xyzs,
+											const QList<QVector3D>			&norms,
+											const std::vector<bool>			&status);
 private:
 	SFMPipeline 				*core;
 	TaskThread 					*tt;

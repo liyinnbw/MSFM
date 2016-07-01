@@ -29,6 +29,8 @@ SFMPipeline::SFMPipeline(	const string			&root,
 							const vector<string> 	&paths) {
 	ptCloud.imgRoot = root;
 	ptCloud.imgs 	= paths;
+	ptCloud2.imgRoot= root;
+	ptCloud2.imgs	= paths;
 
 	/*
 	double camMatArr[9] = { 499.09418996590045, 0.0, 				329.97466633492741,
@@ -1148,9 +1150,14 @@ void SFMPipeline::printDebug(){
 	cout<<"mean reprojection error = "<<error<<endl;
 }
 
-void SFMPipeline::saveProject(			const string 				&fname)
+void SFMPipeline::saveProject(			const string 				&fname,
+										const int					cloudIdx)
 {
-	ProjectIO::writeProject(fname,camMat,distortionMat,ptCloud);
+	if(cloudIdx == 0){
+		ProjectIO::writeProject(fname,camMat,distortionMat,ptCloud);
+	}else if (cloudIdx == 1){
+		ProjectIO::writeProject(fname,camMat,distortionMat,ptCloud2);
+	}
 }
 
 void SFMPipeline::loadProject(			const string				&fname)

@@ -9,6 +9,7 @@
 #include <QMainWindow>
 #include <QWidget>
 #include <QList>
+#include <QVector3D>
 // Class declaration without loading .h files. Faster compilation.
 class QAction;
 class CloudWidget;
@@ -17,7 +18,6 @@ class VisibleImagesPanel;
 class QToolBar;
 class CoreInterfaceWidget;
 class MatchPanel;
-
 class KeyFramePanel;
 class KeyFrameModel;
 class QString;
@@ -39,6 +39,7 @@ private slots:
 	void handleProjectLoaded();
 	void handleReconstruct();
 	void handleFeatureMatch();
+	void handleAddKeyFrame();
 	//void handleSave();
 	void handleNextPair();
 	void handleBundleAdjustment();
@@ -49,6 +50,7 @@ private slots:
 	void handleRemoveBad();
 	void handleDense();
 	void displayPointCloud(bool resetView);
+	void displayPointCloud2(bool resetView);
 	void displayPolygon(bool resetView);
 	void handleKeyFramePanelImageChange(int imgIdx);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
@@ -84,6 +86,7 @@ private:
 	QAction 				*renderPolygonToggleAction;
 	QAction 				*removeCameraAction;
 	QAction 				*minSpanCamerasAction;
+	QAction					*addKeyFrameAction;
 	//QAction					*keyframeAction;
 	
 	QToolBar 				*fileToolBar;
@@ -91,6 +94,7 @@ private:
     //QToolBar 				*ptamToolBar;
 
 	CloudWidget 			*cloudViewer;
+	CloudWidget 			*cloudViewer2;
 	CoreInterfaceWidget 	*coreInterface;
 	MatchPanel 				*matchPanel;
 	VisibleImagesPanel		*visibleImagesPanel;
@@ -98,11 +102,19 @@ private:
 	QLineEdit				*commandBox;
 	KeyFramePanel			*keyframePanel;
 	KeyFrameModel			*keyframeModel;
+	QTabWidget				*tabs;
+	QTabWidget				*tabs2;
 
 	QString 				imageRoot;
 	bool					showNormal;
 	bool					showPolygon;
 	int						keyframeSelectedImgIdx;
+
+	int						mImgIdx;
+	QList<QPointF> 			mxys;
+	QList<QVector3D> 		mxyzs;
+	QList<QVector3D> 		mnorms;
+	std::vector<bool> 		mstatus;
 };
 
 #endif

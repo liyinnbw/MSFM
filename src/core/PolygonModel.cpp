@@ -263,6 +263,8 @@ int PolygonModel::intersect3DRayTriangle(		const int						faceIdx,
 
 	intersection 		= Point3f(pt.at<float>(0),pt.at<float>(1),pt.at<float>(2));
 	intersectionNormal 	= Point3f(fn.at<float>(0),fn.at<float>(1),fn.at<float>(2));
+	//normalize normal
+	intersectionNormal /= norm(intersectionNormal);
 	return 1;                       // I is in T
 
 }

@@ -429,6 +429,19 @@ void CoreInterfaceWidget::getPointCloud(vector<Point3f> &xyzs){
 	}
 	core-> ptCloud.getXYZs(xyzs);
 }
+void CoreInterfaceWidget::getPointCloud2(vector<Point3f> &xyzs){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core-> ptCloud2.getXYZs(xyzs);
+}
 void CoreInterfaceWidget::getPolygons(vector<Point3f> &verts, vector<Point3i> &faces){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
@@ -468,6 +481,19 @@ void CoreInterfaceWidget::getPointNormals(	vector<cv::Point3f> &norms){
 	}
 	core-> ptCloud.getPointNormals(norms);
 }
+void CoreInterfaceWidget::getPointNormals2(	vector<cv::Point3f> &norms){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	core-> ptCloud2.getPointNormals(norms);
+}
 void CoreInterfaceWidget::getCameras(vector<Matx34d> &cams){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
@@ -480,6 +506,19 @@ void CoreInterfaceWidget::getCameras(vector<Matx34d> &cams){
 		return;
 	}
 	cams = core->ptCloud.camMats;
+}
+void CoreInterfaceWidget::getCameras2(vector<Matx34d> &cams){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cams = core->ptCloud2.camMats;
 }
 void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
 	if(!coreIsSet()){
@@ -557,7 +596,7 @@ void CoreInterfaceWidget::getMeasuresToPoints(	const vector<int> 						&pt3DIdxs
 		pt3D2pt2Ds.push_back(pt2Ds);
 	}
 }
-void CoreInterfaceWidget::saveProject(const QString &fname){
+void CoreInterfaceWidget::saveProject(const QString &fname, const int cloudIdx){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
@@ -570,7 +609,7 @@ void CoreInterfaceWidget::saveProject(const QString &fname){
 	}
 	cout<<"core interface save project"<<endl;
 	//core-> writePLY("outputs","");
-	core-> saveProject(fname.toStdString());
+	core-> saveProject(fname.toStdString(), cloudIdx);
 }
 
 void CoreInterfaceWidget::loadProject(const QString &pname){
@@ -666,4 +705,70 @@ void CoreInterfaceWidget::projectImagePointsTo3DSurface(	const int 						imgIdx,
 		norms.push_back(QVector3D(normals[i].x,normals[i].y,normals[i].z));
 	}
 
+}
+
+void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
+											const QList<QPointF> 			&xys,
+											const QList<QVector3D>			&xyzs,
+											const QList<QVector3D>			&norms,
+											const std::vector<bool>			&status)
+{
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","project is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface add keyframe"<<endl;
+	if(core->ptCloud2.imageIsUsed(imgIdx)){
+		cout<<"keyframe already added"<<endl;
+		return;
+	}
+	//set has normal
+	core->ptCloud2.hasPointNormal = true;
+
+	//add images
+	if(core->ptCloud2.imgs.empty()){
+		core->ptCloud2.imgs = core->ptCloud.imgs;
+	}
+
+	//add camera
+	int camIdx = core->ptCloud.img2camMat[imgIdx];
+	core->ptCloud2.camMats.push_back(core->ptCloud.camMats[camIdx]);
+	int camIdx2= core->ptCloud2.camMats.size()-1;
+	core->ptCloud2.camMat2img[camIdx2] = imgIdx;
+	core->ptCloud2.img2camMat[imgIdx] = camIdx2;
+
+	//add gps
+	core->ptCloud2.img2GPS[imgIdx] = core->ptCloud.img2GPS[imgIdx];
+	cout<<"gps = "<<core->ptCloud.img2GPS[imgIdx].first<<","<<core->ptCloud.img2GPS[imgIdx].second<<endl;
+
+	assert(xys.size() == xyzs.size());
+	assert(xyzs.size() == norms.size());
+	assert(status.size() == norms.size());
+	for(int i=0; i<status.size(); i++){
+		if(!status[i]) continue;
+		//add 3D
+		Pt3D pt3D;
+		pt3D.pt = Point3f(xyzs[i].x(),xyzs[i].y(),xyzs[i].z());
+		pt3D.norm = Point3f(norms[i].x(),norms[i].y(),norms[i].z());
+		pt3D.img2ptIdx[imgIdx] = i;
+		core->ptCloud2.pt3Ds.push_back(pt3D);
+
+		//add 2D
+		Pt2D pt2D;
+		pt2D.img_idx 	= imgIdx;
+		pt2D.pt 		= Point2f(xys[i].x(), xys[i].y());
+		pt2D.pt3D_idx 	= core->ptCloud2.pt3Ds.size()-1;
+		pt2D.dec		= Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
+		if(core->ptCloud2.img2pt2Ds.find(imgIdx) == core->ptCloud2.img2pt2Ds.end()){
+			core->ptCloud2.img2pt2Ds[imgIdx] = vector<Pt2D>();
+		}
+		core->ptCloud2.img2pt2Ds[imgIdx].push_back(pt2D);
+	}
+	emit pointCloud2Ready(true);	//need to reset camera view
 }
