@@ -84,7 +84,6 @@ void PolygonModel::trimFaces(		const cv::Matx34d 				&camMat,
 	//find ray start
 	Point3f camCenter = Point3f(Tx,Ty,Tz);
 
-
 	//some reusable variables
 	int imgW 	= camIntrinsicsMat.at<double>(0,2)*2;	//XXX: assumed camera principle is at image center
 	int imgH	= camIntrinsicsMat.at<double>(1,2)*2;	//XXX: assumed camera principle is at image center
@@ -116,12 +115,13 @@ void PolygonModel::trimFaces(		const cv::Matx34d 				&camMat,
 
 		//backface culling
 		Mat v 				= Mat(verts[p0Idx] - camCenter);
+
 		if (v.dot(fn)>=0){
 			continue;
 		}
 
 		//view frustum culling
-		//store 3 vertices to a homogeneous matrix
+		//put verts in camera coordinate
 		Matx43d hom_verts(	verts[p0Idx].x,verts[p1Idx].x,verts[p2Idx].x,
 							verts[p0Idx].y,verts[p1Idx].y,verts[p2Idx].y,
 							verts[p0Idx].z,verts[p1Idx].z,verts[p2Idx].z,
@@ -133,7 +133,29 @@ void PolygonModel::trimFaces(		const cv::Matx34d 				&camMat,
 			continue;
 		}
 
-		/*
+
+		//project triangle vertices to 2d image
+		//XXX: to take distortion mat into account, use the commented out opencv version
+		Mat hom_2d = camIntrinsicsMat*Mat(pt_cc);
+		hom_2d.row(0)/=hom_2d.row(2);
+		hom_2d.row(1)/=hom_2d.row(2);
+
+		//check if triangle is completely outside image using simple bounding box collision test. Not 100% filter
+		//check x
+		Mat xInBound = (hom_2d.row(0)>=0 & hom_2d.row(0)<imgW);
+		if(countNonZero(xInBound) == 0){
+			//no vert's x is in bound
+			continue;
+		}
+		//check y
+		Mat yInBound = (hom_2d.row(1)>=0 & hom_2d.row(1)<imgH);
+		if(countNonZero(yInBound) == 0){
+			//no vert's y is in bound
+			continue;
+		}
+
+
+		/*//opencv version
 		//project triangle vertices to 2d image
 		vector<Point2f> pts2D;
 		vector<Point3f> pts3D;
@@ -145,26 +167,20 @@ void PolygonModel::trimFaces(		const cv::Matx34d 				&camMat,
 
 		//check if triangle is completely outside image using simple bounding box collision test. Not 100% filter
 		//check x
-		bool completelyOutside = true;
+		int cnt = 0;
 		for(int j=0; j<pts2D.size(); j++){
-			if(pts2D[j].x>0 && pts2D[j].x<imgW){
-				completelyOutside = false;
-				break;
+			if(pts2D[j].x>=0 && pts2D[j].x<imgW){
+				cnt++;
 			}
 		}
-		if(!completelyOutside){
-			//check y
-			completelyOutside = true;
-			for(int j=0; j<pts2D.size(); j++){
-				if(pts2D[j].y>0 && pts2D[j].y<imgH){
-					completelyOutside = false;
-					break;
-				}
-			}
-			if(completelyOutside){
-				continue;
+		if(cnt == 0 ) continue;
+		cnt = 0;
+		for(int j=0; j<pts2D.size(); j++){
+			if(pts2D[j].y>=0 && pts2D[j].y<imgH){
+				cnt++;
 			}
 		}
+		if(cnt == 0 ) continue;
 		*/
 
 		faceIdxs.push_back(i);
@@ -204,12 +220,15 @@ int PolygonModel::intersect3DRayTriangle(		const int						faceIdx,
 		return -1;
 	}
 
+
+
 	//check parallel
 	Mat ray = Mat(rayEnd-rayStart);              // ray direction vector
 	Mat w0 	= Mat(rayStart - verts[p0Idx]);
 	float a = -fn.dot(w0);
 	float b = fn.dot(ray);
-	if (fabs(b) < 0.0000001) {  				// ray is  parallel to triangle plane
+	double parallelThresh = 0.0001;
+	if (fabs(b) < parallelThresh) {  				// ray is  parallel to triangle plane
 		if (a == 0)             				// ray lies in triangle plane
 			return 2;
 		else return 0;         					// ray disjoint from plane
@@ -217,7 +236,7 @@ int PolygonModel::intersect3DRayTriangle(		const int						faceIdx,
 
 	// get intersect point of ray with triangle plane
 	float r = a / b;
-	if (r < 0.0)                    			// ray goes away from triangle
+	if (r <= 0.0)                    				// ray goes away from triangle or triangle is back facing the ray
 		return 0;                   			// => no intersect
 												// for a segment, also test if (r > 1.0) => no intersect
 	Mat pt = Mat(rayStart) + r * ray;           // intersect point of ray and plane
@@ -315,6 +334,12 @@ void PolygonModel::getPointsIntersectingSurface(	const cv::Matx34d 				&camMat,
 		Matx41d hom_pt3d(pt3DMat.at<double>(0),pt3DMat.at<double>(1),pt3DMat.at<double>(2),1.0);
 		Mat pt4DMat = camProjectionInv*Mat(hom_pt3d);
 		Point3f rayEnd(pt4DMat.at<double>(0),pt4DMat.at<double>(1),pt4DMat.at<double>(2));
+
+		//normalize ray
+		Point3f ray = rayEnd - camCenter;
+		ray /= norm(ray);
+		rayEnd = camCenter+ray;
+
 		rayEnds.push_back(rayEnd);
 	}
 

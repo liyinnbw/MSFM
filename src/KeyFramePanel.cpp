@@ -118,7 +118,7 @@ void KeyFramePanel::updateCorners(const QList<QList<QPointF> > &data){
 
 void KeyFramePanel::handlePointsSelected(const QList<QPointF> & pts){
 	int imgIdx = imgList->currentIndex()-1;
-	if(imgIdx>0){
+	if(imgIdx>=0){
 		emit imagePointsSelected(imgIdx, pts);
 	}
 }

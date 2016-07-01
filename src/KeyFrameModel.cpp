@@ -58,6 +58,6 @@ void KeyFrameModel::computeKeyFrame(const int idx){
 }
 
 void KeyFrameModel::setImageIdx(const int idx){
-	cout<<"keyframe model set image index to "<<idx<<endl;
-	imgIdx = idx;
+	imgIdx = idx-1;
+	cout<<"keyframe model set image index to "<<imgIdx<<endl;
 }

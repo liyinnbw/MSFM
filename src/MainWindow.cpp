@@ -502,15 +502,15 @@ void MainWindow::displayPolygon(bool resetView){
 	vector<Point3i> faces;
 	//coreInterface->getPolygons(verts, faces);
 
-	coreInterface->getVisiblePolygons(-1, verts, faces); // keyframeSelectedImgIdx
+	coreInterface->getVisiblePolygons(keyframeSelectedImgIdx, verts, faces); //
 	vector<Matx34d> cams;
 	coreInterface->getCameras(cams);
 	cloudViewer->loadPolygonAndCamera(verts, faces, cams, resetView);
 	statusBar()->showMessage(tr("polygon refreshed"));
 }
 void MainWindow::handleKeyFramePanelImageChange(int imgIdx){
-
-	keyframeSelectedImgIdx = imgIdx;
+	keyframeSelectedImgIdx = imgIdx-1;
+	//displayPolygon(false);
 
 }
 void MainWindow::handleNormalRenderToggle(){

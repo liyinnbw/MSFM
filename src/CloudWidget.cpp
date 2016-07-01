@@ -143,8 +143,9 @@ class InteractorStyle : public vtkInteractorStyleRubberBandPick
 		if(	originalID>=parentWidget->numCloudPoints){
 			int camIdx = (originalID-parentWidget->numCloudPoints)/4;
 			std::cout << "selected camera " << camIdx << std::endl;
+			std::cout << "point " << i << " : " << originalID<< std::endl;
 		}else{
-			//std::cout << "point " << i << " : " << originalID<<" is a camera point" << std::endl;
+			std::cout << "point " << i << " : " << originalID<< std::endl;
 		}
       }
         
@@ -284,7 +285,7 @@ void CloudWidget::highlightPoints(const QList<QVector3D> &xyzs, const int camIdx
 	vtkSmartPointer<vtkCellArray> vertices = pointsData->GetVerts();
 	vtkIdType newVertsCellId = vertices->InsertNextCell(idxs.size(),pids);
 	vtkSmartPointer<vtkUnsignedCharArray> colors = vtkUnsignedCharArray::SafeDownCast(pointsData->GetCellData()->GetScalars("Colors"));
-	unsigned char highlightColor[3] = {Utils::getRandomInt(0,255), Utils::getRandomInt(0,255), Utils::getRandomInt(0,255)};	//random color
+	unsigned char highlightColor[3] = {255,0,0};	//red color
 	//just to add a new tuple, value doesnt matter
 	#if VTK_MAJOR_VERSION < 7
 		colors->InsertNextTupleValue(highlightColor);
@@ -304,6 +305,9 @@ void CloudWidget::highlightPoints(const QList<QVector3D> &xyzs, const int camIdx
 		colors->InsertTypedTuple(newVertsCellId, highlightColor);
 	#endif
 
+	//int numCells = pointsData->GetPolys()->GetNumberOfCells();
+	//cout<<"faces = "<<numCells<<endl;
+	pointsData->Modified(); //to trigger an UI update
 	//highlightPointIdx(idxs, camIdx);
 }
 void CloudWidget::highlightPointIdx(const QList<int> idxs, const int camIdx){
@@ -504,7 +508,7 @@ void CloudWidget::loadPolygonAndCamera(const vector<Point3f> &verts, const vecto
 		triangle->GetPointIds()->SetId ( 1, faces[i].y );
 		triangle->GetPointIds()->SetId ( 2, faces[i].z );
 		triangles->InsertNextCell(triangle);
-		//insert cell colors for edges
+		//insert cell colors for faces
 	#if VTK_MAJOR_VERSION < 7
 		colors->InsertNextTupleValue(yellow);
 	#else

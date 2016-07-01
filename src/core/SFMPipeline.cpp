@@ -1173,7 +1173,9 @@ void SFMPipeline::getVisiblePolygons(	const int						imgIdx,
 										std::vector<Point3i> 			&faces)
 {
 	if(ptCloud.imageIsUsed(imgIdx)){
+
 		int camIdx = ptCloud.img2camMat[imgIdx];
+		cout<<"camera = "<<camIdx<<endl;
 		poly.getVisiblePolygons(ptCloud.camMats[camIdx], camMat, distortionMat, verts,faces);
 	}else{
 		poly.getPolygons(verts,faces);
