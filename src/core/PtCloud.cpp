@@ -680,6 +680,12 @@ void PtCloud::ApplyGlobalTransformation(const cv::Mat &transfMat){
 
 		Mat newRMat = (Mat(homoCamMat))*homoTransfMatInv;
 
+		cout<<"new Rmat = "<<endl;
+		cout<<newRMat<<endl;
+		/*newRMat.row(0)= newRMat.row(0)/newRMat.row(3);
+		newRMat.row(1)= newRMat.row(1)/newRMat.row(3);
+		newRMat.row(2)= newRMat.row(2)/newRMat.row(3);*/
+
 		Matx34d newCamMat(	newRMat.at<double>(0,0),newRMat.at<double>(0,1),newRMat.at<double>(0,2),newRMat.at<double>(0,3),
 							newRMat.at<double>(1,0),newRMat.at<double>(1,1),newRMat.at<double>(1,2),newRMat.at<double>(1,3),
 							newRMat.at<double>(2,0),newRMat.at<double>(2,1),newRMat.at<double>(2,2),newRMat.at<double>(2,3));

@@ -234,8 +234,8 @@ void MainWindow::connectWidgets(){
 	connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
 	connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
 	connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
-	connect(keyframePanel, SIGNAL(imagePointsSelected(const int, const QList<QPointF> &)), this, SLOT(handleKeyframeImagePointsSelected(const int, const QList<QPointF> &)));
-	connect(keyframePanel, SIGNAL(imageChanged(int)), this, SLOT(handleKeyFramePanelImageChange(int)));
+	//connect(keyframePanel, SIGNAL(imagePointsSelected(const int, const QList<QPointF> &)), this, SLOT(handleKeyframeImagePointsSelected(const int, const QList<QPointF> &)));
+	connect(keyframePanel, SIGNAL(imageChanged(const int)), this, SLOT(handleKeyFramePanelImageChange(const int)));
 
 }
 
@@ -539,9 +539,10 @@ void MainWindow::displayPolygon(bool resetView){
 	cloudViewer->loadPolygonAndCamera(verts, faces, cams, resetView);
 	statusBar()->showMessage(tr("polygon refreshed"));
 }
-void MainWindow::handleKeyFramePanelImageChange(int imgIdx){
+void MainWindow::handleKeyFramePanelImageChange(const int imgIdx){
 	keyframeSelectedImgIdx = imgIdx-1;
-	//displayPolygon(false);
+	projectPolygonToImage(keyframeSelectedImgIdx);
+	displayPolygon(false);
 
 }
 void MainWindow::handleNormalRenderToggle(){
@@ -591,6 +592,15 @@ void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 		}
 		cloudViewer->highlightPointIdx(idxs, camIdx2);
 	}
+
+}
+void MainWindow::projectPolygonToImage(int imgIdx)
+{
+	statusBar()->showMessage(tr("project polygon to image..."));
+	QList<QPointF>	verts;
+	coreInterface ->projectPolygonToImage(imgIdx, verts);
+	cout<<"projected faces = "<<verts.size()/3<<endl;
+	keyframePanel ->drawProjection(verts);
 
 }
 void MainWindow::openFile()

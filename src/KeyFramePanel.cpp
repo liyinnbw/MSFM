@@ -8,7 +8,8 @@
 #include <iostream>
 
 #include "KeyFramePanel.h"
-#include "ImageWidget.h"
+//#include "ImageWidget.h"
+#include "KeyFrameWidget.h"
 
 using namespace std;
 
@@ -16,6 +17,7 @@ KeyFramePanel::KeyFramePanel() {
 	createWidgets();
 	connectWidgets();
 	setImagePaths(QString(),QList<QString>());
+	currentImgIdx = -1;
 
 }
 
@@ -24,9 +26,10 @@ KeyFramePanel::~KeyFramePanel() {
 }
 
 void KeyFramePanel::createWidgets(){
-	imageView 				= new ImageWidget;
+	imageView 				= new KeyFrameWidget;
 	imgList					= new QComboBox;
 	lvlList					= new QComboBox;
+	computeKeyFrameButton 	= new QPushButton(tr("Compute KeyFrame"));
 	lvlList->addItem(tr("All Levels"));
 	lvlList->addItem(tr("Level 0: 1/1"));
 	lvlList->addItem(tr("Level 1: 1/2"));
@@ -38,19 +41,24 @@ void KeyFramePanel::createWidgets(){
 	imgList->setMaxVisibleItems(10);	//limit list dropdown size to 10
 	scrollArea->setWidget(imageView);
 
+	QHBoxLayout *hLayout = new QHBoxLayout;
+	hLayout->addWidget(lvlList);
+	hLayout->addWidget(computeKeyFrameButton);
+
 	QVBoxLayout *vLayout = new QVBoxLayout;
 	vLayout->addWidget(imgList);
 	vLayout->addWidget(scrollArea);
-	vLayout->addWidget(lvlList);
+	vLayout->addLayout(hLayout);
 
 	this->setLayout(vLayout);
 }
 
 void KeyFramePanel::connectWidgets(){
-	connect(imgList, SIGNAL(activated(int)), this, SLOT(handleImageSelected(int)));
+	//connect(imgList, SIGNAL(activated(int)), this, SLOT(handleImageSelected(int)));
 	connect(lvlList, SIGNAL(activated(int)), this, SLOT(handleImageLevelSelected(int)));
 	connect(imageView, SIGNAL(pointsMarked(const QList<QPointF> &)), this, SLOT(handlePointsSelected(const QList<QPointF> &)));
-	connect(imgList, SIGNAL(currentIndexChanged(int)), this, SIGNAL(imageChanged(int)));
+	connect(imgList, SIGNAL(currentIndexChanged(int)), this, SLOT(handleImageSelected(int)));
+	connect(computeKeyFrameButton, SIGNAL(clicked()), this, SLOT(handleComputeKeyFrameClicked()));
 }
 
 void KeyFramePanel::setImagePaths(const QString &root, const QList<QString> &list){
@@ -66,13 +74,20 @@ void KeyFramePanel::setImagePaths(const QString &root, const QList<QString> &lis
 }
 
 void KeyFramePanel::handleImageSelected(int idx){
+	currentImgIdx = idx-1;
 	if(imgList->currentIndex()>0){
 
 		QRegExp rx("(\\[|\\])"); //RegEx for '[' or ']'
 		QStringList tokens = imgList->itemText(idx).split(rx);
 		imageView->setImage(imgRoot+"/"+tokens[tokens.size()-1]);
 		cout<<"KeyFramePanel image:["<<idx-1<<"]"<<(imgList->itemText(idx)).toStdString()<<endl;
-		emit doComputeKeyFrame(idx-1);
+		//emit doComputeKeyFrame(idx-1);
+		emit imageChanged(idx);
+	}
+}
+void KeyFramePanel::handleComputeKeyFrameClicked(){
+	if(currentImgIdx>=0){
+		emit doComputeKeyFrame(currentImgIdx);
 	}
 }
 void KeyFramePanel::handleImageLevelSelected(int option){
@@ -121,4 +136,12 @@ void KeyFramePanel::handlePointsSelected(const QList<QPointF> & pts){
 	if(imgIdx>=0){
 		emit imagePointsSelected(imgIdx, pts);
 	}
+}
+void KeyFramePanel::drawProjection(const QList<QPointF> &verts){
+	QList<bool> mask;
+	for(int i = 0; i<verts.size(); i++){
+		mask.push_back(true);
+	}
+	imageView->setProjectionVerts(verts);
+	//imageView->setMarks(verts,mask);
 }

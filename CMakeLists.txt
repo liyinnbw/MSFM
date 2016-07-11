@@ -18,6 +18,7 @@ src/MatchPanelModel.cpp
 src/VisibleImagesPanel.cpp
 src/KeyFramePanel.cpp
 src/KeyFrameModel.cpp
+src/KeyFrameWidget.cpp
 src/core/PlyIO.cpp
 src/core/ProjectIO.cpp
 src/CoreInterfaceWidget.cpp
@@ -88,6 +89,7 @@ src/VisibleImagesPanel.h
 src/MatchPanelModel.h
 src/KeyFramePanel.h
 src/KeyFrameModel.h
+src/KeyFrameWidget.h
 )
 QT4_WRAP_CPP(MOC ${HEADERS})
 

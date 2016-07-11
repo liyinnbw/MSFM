@@ -1189,6 +1189,20 @@ void SFMPipeline::getVisiblePolygons(	const int						imgIdx,
 	}
 }
 
+void SFMPipeline::projectPolygonToImage(	const int 						imgIdx,
+											std::vector<cv::Point2f>		&verts,
+											std::vector<cv::Point3i> 		&faces)
+{
+	verts.clear();
+	faces.clear();
+	if(!ptCloud.imageIsUsed(imgIdx)){
+		return;
+	}
+	int camIdx = ptCloud.img2camMat[imgIdx];
+	cout<<"camera = "<<camIdx<<endl;
+	poly.projectPolygonToCamera(ptCloud.camMats[camIdx], camMat, distortionMat, verts,faces);
+}
+
 #include "ptam/KeyFrame.h"
 #include <cvd/image.h>
 #include <cvd/byte.h>

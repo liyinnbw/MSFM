@@ -707,6 +707,35 @@ void CoreInterfaceWidget::projectImagePointsTo3DSurface(	const int 						imgIdx,
 
 }
 
+void CoreInterfaceWidget::projectPolygonToImage(	const int 						imgIdx,
+													QList<QPointF>					&xys)
+{
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","project is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	cout<<"core interface project polygon to image "<<imgIdx<<endl;
+	vector<Point2f> verts;
+	vector<Point3i> faces;
+	core->projectPolygonToImage(imgIdx,verts,faces);
+	xys.clear();
+	xys.reserve(faces.size()*3);
+	for(int i=0; i<faces.size(); i++){
+		int vId0 = faces[i].x;
+		int vId1 = faces[i].y;
+		int vId2 = faces[i].z;
+		xys.push_back(QPointF(verts[vId0].x,verts[vId0].y));
+		xys.push_back(QPointF(verts[vId1].x,verts[vId1].y));
+		xys.push_back(QPointF(verts[vId2].x,verts[vId2].y));
+	}
+}
+
 void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
 											const QList<QPointF> 			&xys,
 											const QList<QVector3D>			&xyzs,

@@ -113,6 +113,11 @@ void ProjectIO::writeProject(	const string			&fname,
 	else if(Utils::endsWith(fname,".ply")){
 		const vector<Matx34d> &cameras = ptCloud.camMats;
 		vector<Point3f> pts;
+		vector<Point3f> norms;
+		bool saveNormal = ptCloud.hasPointNormal;
+		if(saveNormal){
+			ptCloud.getPointNormals(norms);
+		}
 		ptCloud.getXYZs(pts);
 		vector<Vec3b> color(pts.size(),Vec3b(255,255,255));
 
@@ -138,6 +143,11 @@ void ProjectIO::writeProject(	const string			&fname,
 		myfile <<"property float x"<<endl;
 		myfile <<"property float y"<<endl;
 		myfile <<"property float z"<<endl;
+		if(saveNormal){
+			myfile <<"property float nx"<<endl;
+			myfile <<"property float ny"<<endl;
+			myfile <<"property float nz"<<endl;
+		}
 		myfile <<"property uchar red"<<endl;
 		myfile <<"property uchar green"<<endl;
 		myfile <<"property uchar blue"<<endl;
@@ -159,7 +169,14 @@ void ProjectIO::writeProject(	const string			&fname,
 				int r=color[n][0];
 				int g=color[n][1];
 				int b=color[n][2];
-				myfile <<x<<" "<<y<<" "<<z<<" "<<b<<" "<<g<<" "<<r<<endl;
+				myfile <<x<<" "<<y<<" "<<z<<" ";
+				if(saveNormal){
+					float nx = norms[n].x;
+					float ny = norms[n].y;
+					float nz = norms[n].z;
+					myfile <<nx<<" "<<ny<<" "<<nz<<" ";
+				}
+				myfile <<b<<" "<<g<<" "<<r<<endl;
 		}
 		for (int n=0 ; n<numCameras ; n++)
 		{
@@ -195,10 +212,17 @@ void ProjectIO::writeProject(	const string			&fname,
 			double Ky  = Ty + cameras[n](2,1);
 			double Kz  = Tz + cameras[n](2,2);
 
-			myfile <<Tx<<" "<<Ty<<" "<<Tz<<" "<<255<<" "<<255<<" "<<255<<endl;
-			myfile <<Ix<<" "<<Iy<<" "<<Iz<<" "<<255<<" "<<0<<" "<<0<<endl;
-			myfile <<Jx<<" "<<Jy<<" "<<Jz<<" "<<0<<" "<<255<<" "<<0<<endl;
-			myfile <<Kx<<" "<<Ky<<" "<<Kz<<" "<<0<<" "<<0<<" "<<255<<endl;
+			if(saveNormal){
+				myfile <<Tx<<" "<<Ty<<" "<<Tz<<" "<<0<<" "<<0<<" "<<0<<" "<<255<<" "<<255<<" "<<255<<endl;
+				myfile <<Ix<<" "<<Iy<<" "<<Iz<<" "<<0<<" "<<0<<" "<<0<<" "<<255<<" "<<0<<" "<<0<<endl;
+				myfile <<Jx<<" "<<Jy<<" "<<Jz<<" "<<0<<" "<<0<<" "<<0<<" "<<0<<" "<<255<<" "<<0<<endl;
+				myfile <<Kx<<" "<<Ky<<" "<<Kz<<" "<<0<<" "<<0<<" "<<0<<" "<<0<<" "<<0<<" "<<255<<endl;
+			}else{
+				myfile <<Tx<<" "<<Ty<<" "<<Tz<<" "<<255<<" "<<255<<" "<<255<<endl;
+				myfile <<Ix<<" "<<Iy<<" "<<Iz<<" "<<255<<" "<<0<<" "<<0<<endl;
+				myfile <<Jx<<" "<<Jy<<" "<<Jz<<" "<<0<<" "<<255<<" "<<0<<endl;
+				myfile <<Kx<<" "<<Ky<<" "<<Kz<<" "<<0<<" "<<0<<" "<<255<<endl;
+			}
 
 		}
 

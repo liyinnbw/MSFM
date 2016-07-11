@@ -24,6 +24,12 @@ public:
 											std::vector<cv::Point3f> 		&_verts,
 											std::vector<cv::Point3i> 		&_faces);
 
+	void projectPolygonToCamera(			const cv::Matx34d 				&camMat,
+											const cv::Mat 					&camIntrinsicsMat,
+											const cv::Mat					&distortionMat,
+											std::vector<cv::Point2f> 		&_verts,
+											std::vector<cv::Point3i> 		&_faces);
+
 	int intersect3DRayTriangle(				const int						faceIdx,
 											const cv::Point3f				&rayStart,
 											const cv::Point3f				&rayEnd,

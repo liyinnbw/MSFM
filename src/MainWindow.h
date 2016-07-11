@@ -52,7 +52,7 @@ private slots:
 	void displayPointCloud(bool resetView);
 	void displayPointCloud2(bool resetView);
 	void displayPolygon(bool resetView);
-	void handleKeyFramePanelImageChange(int imgIdx);
+	void handleKeyFramePanelImageChange(const int imgIdx);
 	void highlightPoints(const int imgIdx1, const int imgIdx2);
 	void handleLineCommand();
 	void handleNormalRenderToggle();
@@ -60,6 +60,7 @@ private slots:
 	void handleDeleteCamera();
 	void handleMinSpanCamera();
 	void handleKeyframeImagePointsSelected(const int imgIdx, const QList<QPointF> &pts);
+	void projectPolygonToImage(int imgIdx);
 
 private:
     void createWidgets();

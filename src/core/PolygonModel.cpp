@@ -51,6 +51,41 @@ void PolygonModel::getVisiblePolygons(	const cv::Matx34d 				&camMat,
 	}
 }
 
+void PolygonModel::projectPolygonToCamera(	const cv::Matx34d 				&camMat,
+											const cv::Mat 					&camIntrinsicsMat,
+											const cv::Mat					&distortionMat,
+											std::vector<cv::Point2f>		&_verts,
+											std::vector<cv::Point3i> 		&_faces)
+{
+	_verts.clear();
+	_faces.clear();
+	if(verts.empty()) return;
+	vector<int>	visibleFaceIdxs;
+	trimFaces(camMat,camIntrinsicsMat,distortionMat,visibleFaceIdxs);
+	_verts.reserve(verts.size());
+	_faces.reserve(visibleFaceIdxs.size());
+	Mat R(3,3,CV_64F);
+	R.at<double>(0,0) = camMat(0,0);
+	R.at<double>(0,1) = camMat(0,1);
+	R.at<double>(0,2) = camMat(0,2);
+	R.at<double>(1,0) = camMat(1,0);
+	R.at<double>(1,1) = camMat(1,1);
+	R.at<double>(1,2) = camMat(1,2);
+	R.at<double>(2,0) = camMat(2,0);
+	R.at<double>(2,1) = camMat(2,1);
+	R.at<double>(2,2) = camMat(2,2);
+	Mat rvec;
+	Rodrigues(R,rvec);
+	Mat t(1,3,CV_64F);
+	t.at<double>(0)   = camMat(0,3);
+	t.at<double>(1)   = camMat(1,3);
+	t.at<double>(2)   = camMat(2,3);
+	projectPoints(verts, rvec, t, camIntrinsicsMat, distortionMat, _verts);
+	for(int i=0; i<visibleFaceIdxs.size(); i++){
+		_faces.push_back(faces[visibleFaceIdxs[i]]);
+	}
+}
+
 //Reduce the number of faces need to be considered for a given camera
 //XXX: only view frustrum and back face are checked. occlusion not checked.
 void PolygonModel::trimFaces(		const cv::Matx34d 				&camMat,

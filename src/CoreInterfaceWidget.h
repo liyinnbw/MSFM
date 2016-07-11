@@ -133,6 +133,9 @@ public:
 											QList<QVector3D>				&norms,
 											std::vector<bool>				&status);
 
+	void projectPolygonToImage(				const int 						imgIdx,
+											QList<QPointF>					&xys);	//3verts = 1 face
+
 	void addKeyFrame(						const int 						imgIdx,
 											const QList<QPointF> 			&xys,
 											const QList<QVector3D>			&xyzs,

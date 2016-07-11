@@ -168,6 +168,10 @@ public:
 								std::vector<cv::Point3f> 		&verts,
 								std::vector<cv::Point3i> 		&faces);
 
+	void projectPolygonToImage(	const int 						imgIdx,
+								std::vector<cv::Point2f>		&verts,
+								std::vector<cv::Point3i> 		&faces);
+
 	double getCamFocal();
 	cv::Point2d getCamPrinciple();
 	int getCloudSize(){return ptCloud.pt3Ds.size();}
