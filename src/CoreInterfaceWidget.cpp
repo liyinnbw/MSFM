@@ -762,6 +762,7 @@ void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
 
 	//add images
 	if(core->ptCloud2.imgs.empty()){
+		core->ptCloud2.imgRoot = core->ptCloud.imgRoot;
 		core->ptCloud2.imgs = core->ptCloud.imgs;
 	}
 

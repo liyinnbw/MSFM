@@ -278,9 +278,7 @@ void ProjectIO::writeProject(	const string			&fname,
 		const map<int, pair<double, double> > &img2GPS = ptCloud.img2GPS;
 		for(int i=0; i<ptCloud.camMats.size(); i++){
 			int imgIdx = -1;
-			cout<<"ok0"<<endl;
 			assert(ptCloud.getImageIdxByCameraIdx(i, imgIdx));
-			cout<<"ok1"<<endl;
 			//cam id
 			myfile<<i<<" ";
 
@@ -288,11 +286,9 @@ void ProjectIO::writeProject(	const string			&fname,
 			double lat, lon;
 			assert(ptCloud.getImageGPS(imgIdx, lat, lon));
 			myfile<<setprecision(17)<<lat<<" "<<lon<<" ";
-			cout<<"ok2"<<endl;
 			//image name
 			string imgName = ptCloud.imgs[imgIdx];
 			myfile<<imgName<<" ";
-			cout<<"ok3"<<endl;
 			//pose
 			Mat r, t;
 			ptCloud.getCamRvecAndT(i, r, t);
@@ -300,9 +296,7 @@ void ProjectIO::writeProject(	const string			&fname,
 			//measurements
 			vector<Point2f> xys;
 			vector<int>		pt3DIdxs;
-			cout<<"ok"<<endl;
 			ptCloud.getImageMeasurements(imgIdx,xys,pt3DIdxs);
-			cout<<"ok2"<<endl;
 			assert(xys.size() == pt3DIdxs.size());
 			myfile<<pt3DIdxs.size()<<" ";
 			for(int j=0; j<pt3DIdxs.size(); j++){

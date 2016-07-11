@@ -234,7 +234,7 @@ void MainWindow::connectWidgets(){
 	connect(keyframePanel, SIGNAL(imageChanged(const int)), keyframeModel, SLOT(setImageIdx(const int)));
 	connect(keyframePanel, SIGNAL(doComputeKeyFrame(const int)), keyframeModel, SLOT(computeKeyFrame(const int)));
 	connect(keyframeModel, SIGNAL(keyFrameCornersReady(const QList<QList<QPointF> > &)), keyframePanel, SLOT(updateCorners(const QList<QList<QPointF> > &)));
-	//connect(keyframePanel, SIGNAL(imagePointsSelected(const int, const QList<QPointF> &)), this, SLOT(handleKeyframeImagePointsSelected(const int, const QList<QPointF> &)));
+	connect(keyframePanel, SIGNAL(imagePointsSelected(const int, const QList<QPointF> &)), this, SLOT(handleKeyframeImagePointsSelected(const int, const QList<QPointF> &)));
 	connect(keyframePanel, SIGNAL(imageChanged(const int)), this, SLOT(handleKeyFramePanelImageChange(const int)));
 
 }
