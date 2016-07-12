@@ -44,6 +44,7 @@ private slots:
 	void handleNextPair();
 	void handleBundleAdjustment();
 	void handleDeletePointIdx(const QList<int> idxs);
+	void handleDeletePointIdx2(const QList<int> idxs);
 	void handleDeleteMeasures(const QList<QPair<int,int> > &measures);
 	void handleShowCamerasSeeingPoints(const QList<int> idxs);
 	void handleCheckMatch();

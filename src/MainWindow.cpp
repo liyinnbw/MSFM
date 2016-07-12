@@ -220,6 +220,7 @@ void MainWindow::createToolBars()
 void MainWindow::connectWidgets(){
 	connect(commandBox, SIGNAL(returnPressed()), this, SLOT(handleLineCommand()));
 	connect(cloudViewer, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx(const QList<int>)));
+	connect(cloudViewer2, SIGNAL(deletePointIdx(const QList<int>)), this, SLOT(handleDeletePointIdx2(const QList<int>)));
 	connect(cloudViewer, SIGNAL(showCamerasSeeingPoints(const QList<int>)), this, SLOT(handleShowCamerasSeeingPoints(const QList<int>)));
 	connect(coreInterface, SIGNAL(pointCloudReady(bool)), this, SLOT(displayPointCloud(bool)));
 	connect(coreInterface, SIGNAL(pointCloud2Ready(bool)), this, SLOT(displayPointCloud2(bool)));
@@ -281,7 +282,11 @@ void MainWindow::handleBundleAdjustment(){
 }
 void MainWindow::handleDeletePointIdx(const QList<int> idxs){
 	statusBar()->showMessage(tr("deleting points..."));
-	coreInterface->deletePointIdx(idxs);
+	coreInterface->deletePointIdx(idxs, 0);
+}
+void MainWindow::handleDeletePointIdx2(const QList<int> idxs){
+	statusBar()->showMessage(tr("deleting points..."));
+	coreInterface->deletePointIdx(idxs, 1);
 }
 void MainWindow::handleShowCamerasSeeingPoints(const QList<int> idxs){
 	statusBar()->showMessage(tr("showing cameras..."));

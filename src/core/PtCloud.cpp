@@ -720,6 +720,9 @@ bool PtCloud::getImageGPS(const int imgIdx, double &lat, double &lon) const{
 //removal functions
 
 void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
+	sanityCheck();
+	cout<<"before deletion sanity check pass"<<endl;
+
 	assert(removeMask.size() == pt3Ds.size());
 	int removeCnt = 0;
 
@@ -751,6 +754,8 @@ void PtCloud::remove3Ds(	const vector<bool> 	&removeMask){
 	}
 	pt3Ds = newPt3Ds;
 	assert(removeCnt == (removeMask.size() - pt3Ds.size()));
+	sanityCheck();
+	cout<<"after deletion sanity check pass"<<endl;
 }
 void PtCloud::removeMeasures(const std::vector<std::pair<int,int> > &measures){
 	for(int i=0; i<measures.size(); i++){
@@ -844,4 +849,20 @@ void PtCloud::removeCamerasSeeingNo3Ds(){
 void PtCloud::removeRedundancy(){
 	remove3DsHaveNoMeasurements();
 	removeCamerasSeeingNo3Ds();
+}
+
+void PtCloud::sanityCheck(){
+	//check if two measurements from the same image points to the same 3d point which shouldnt happen
+	for(map<int, vector<Pt2D> >::iterator it =img2pt2Ds.begin(); it!=img2pt2Ds.end(); ++it){
+		const vector<Pt2D> &pt2Ds = it->second;
+		map<int,int> pt3DIdx2Cnt;
+		for(int i=0; i<pt2Ds.size(); i++){
+			int pt3DIdx = pt2Ds[i].pt3D_idx;
+			//cout<<pt3DIdx<<endl;
+			if(pt3DIdx!=-1){
+				assert(pt3DIdx2Cnt.find(pt3DIdx) == pt3DIdx2Cnt.end());
+				pt3DIdx2Cnt[pt3DIdx] = 1;
+			}
+		}
+	}
 }

@@ -38,6 +38,7 @@ public:
 	void setReconstructionParameters(	const int 						&imgIdx1,
 										const int 						&imgIdx2,
 										const QList<bool> 				&mask);
+	void setCloudID(const int cloudID){mCloudID = cloudID;}
 
 	//Getters
 	void getImagePair(					int 							&imgIdx1,
@@ -50,6 +51,7 @@ public:
 	const static int TASK_BUNDLEADJUST	= 3;
 	const static int TASK_NEXTPAIR		= 4;
 
+	int 						mCloudID;
 
 protected:
     void run();
@@ -60,7 +62,7 @@ private:
 	int							mImgIdx1;
 	int							mImgIdx2;
 	QList<bool>					mMask;
-	int currentTask;
+	int 						currentTask;
 };
 
 class CoreInterfaceWidget: public QWidget
@@ -85,7 +87,7 @@ public slots:
 	void loadProject(const QString &);
 	void loadGPS(const QString &);
 	void loadPolygon(const QString &);
-	void deletePointIdx(const QList<int> idxs);
+	void deletePointIdx(const QList<int> idxs, const int cloudID);
 	void handleDeletePointIdxFinished();
 	void matchImages(	const int &imgIdx1,
 						const int &imgIdx2);

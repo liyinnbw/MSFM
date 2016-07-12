@@ -553,7 +553,10 @@ void CloudWidget::loadPolygonAndCamera(const vector<Point3f> &verts, const vecto
 	  if(resetView){
 		  renderer->ResetCamera();	//move camera to cloud center
 	  }
+
+	if(numCloudPoints>0){
 	  enableInteraction();
+	}
 
 }
 
@@ -581,11 +584,13 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<P
 
 	//add cloud points
 	numCloudPoints = xyzs.size();
-	cout<<"numCloudPoints = "<<numCloudPoints<<endl;
+	cout<<"[loadCloudAndCamera] numCloudPoints = "<<numCloudPoints<<endl;
+
 	vtkIdType pid[numCloudPoints];//temp array to store point ids for create vertices
 	for(int i=0; i<numCloudPoints; i++){
 		pid[i] = points->InsertNextPoint(xyzs[i].x, xyzs[i].y, xyzs[i].z);
 	}
+
 	//create vertices from point ids
 	vertices->InsertNextCell(numCloudPoints,pid);
 	int numCells = vertices->GetNumberOfCells();
@@ -729,7 +734,11 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<P
   if(resetView){
 	  renderer->ResetCamera();	//move camera to cloud center
   }
-  enableInteraction();
+
+  if(numCloudPoints>0){
+	  enableInteraction();
+  }
+
 }
 /*
 void CloudWidget::loadCloud(const vector<Point3f> &xyzs){

@@ -86,12 +86,21 @@ void TaskThread::run(){
 			break; 
 		case TASK_DELETEPOINTS:
 		{
-			vector<bool> removeMask(mCore->ptCloud.pt3Ds.size(),false);
-			for(int i=0; i<deleteIdxs.size(); i++){
-				removeMask[deleteIdxs[i]]=true;
+			if(mCloudID == 0){
+				vector<bool> removeMask(mCore->ptCloud.pt3Ds.size(),false);
+				for(int i=0; i<deleteIdxs.size(); i++){
+					removeMask[deleteIdxs[i]]=true;
+				}
+				mCore->ptCloud.remove3Ds(removeMask);
+				mCore->ptCloud.removeRedundancy();
+			}else if(mCloudID == 1){
+				vector<bool> removeMask(mCore->ptCloud2.pt3Ds.size(),false);
+				for(int i=0; i<deleteIdxs.size(); i++){
+					removeMask[deleteIdxs[i]]=true;
+				}
+				mCore->ptCloud2.remove3Ds(removeMask);
+				mCore->ptCloud2.removeRedundancy();
 			}
-			mCore->ptCloud.remove3Ds(removeMask);
-			mCore->ptCloud.removeRedundancy();
 		}
 			break;
 		case TASK_BUNDLEADJUST:
@@ -224,7 +233,7 @@ void CoreInterfaceWidget::handleBundleAdjustFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleBundleAdjustFinished()));
 	emit pointCloudReady(true);
 }
-void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
+void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs, const int cloudID){
 	if(!coreIsSet()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","image folder is not loaded!");
@@ -239,13 +248,18 @@ void CoreInterfaceWidget::deletePointIdx(const QList<int> idxs){
 	int task = TaskThread::TASK_DELETEPOINTS;
 	tt->setTask(task);
 	tt->setDeleteIdxs(idxs);
+	tt->setCloudID(cloudID);
 	connect(tt, SIGNAL(finished()), this, SLOT(handleDeletePointIdxFinished()));
 	tt -> start();
 }
 
 void CoreInterfaceWidget::handleDeletePointIdxFinished(){
 	disconnect(tt, SIGNAL(finished()), this, SLOT(handleDeletePointIdxFinished()));
-	emit pointCloudReady(true);
+	if(tt->mCloudID == 0){
+		emit pointCloudReady(true);
+	}else if(tt->mCloudID == 1){
+		emit pointCloud2Ready(true);
+	}
 }
 void CoreInterfaceWidget::matchImages(	const int &_imgIdx1,
 										const int &_imgIdx2){
@@ -780,25 +794,30 @@ void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
 	assert(xys.size() == xyzs.size());
 	assert(xyzs.size() == norms.size());
 	assert(status.size() == norms.size());
+
 	for(int i=0; i<status.size(); i++){
 		if(!status[i]) continue;
 		//add 3D
 		Pt3D pt3D;
 		pt3D.pt = Point3f(xyzs[i].x(),xyzs[i].y(),xyzs[i].z());
 		pt3D.norm = Point3f(norms[i].x(),norms[i].y(),norms[i].z());
-		pt3D.img2ptIdx[imgIdx] = i;
 		core->ptCloud2.pt3Ds.push_back(pt3D);
 
 		//add 2D
 		Pt2D pt2D;
 		pt2D.img_idx 	= imgIdx;
 		pt2D.pt 		= Point2f(xys[i].x(), xys[i].y());
-		pt2D.pt3D_idx 	= core->ptCloud2.pt3Ds.size()-1;
 		pt2D.dec		= Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
 		if(core->ptCloud2.img2pt2Ds.find(imgIdx) == core->ptCloud2.img2pt2Ds.end()){
 			core->ptCloud2.img2pt2Ds[imgIdx] = vector<Pt2D>();
 		}
 		core->ptCloud2.img2pt2Ds[imgIdx].push_back(pt2D);
+
+		//link 2d 3d, Warning, assigning value to pt3D or pt2D will be wrong cos "push_back" copys the data
+		core->ptCloud2.pt3Ds.back().img2ptIdx[imgIdx] 		= core->ptCloud2.img2pt2Ds[imgIdx].size()-1;
+		core->ptCloud2.img2pt2Ds[imgIdx].back().pt3D_idx 	= core->ptCloud2.pt3Ds.size()-1;
+
 	}
+
 	emit pointCloud2Ready(true);	//need to reset camera view
 }

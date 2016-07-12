@@ -18,6 +18,7 @@ KeyFramePanel::KeyFramePanel() {
 	connectWidgets();
 	setImagePaths(QString(),QList<QString>());
 	currentImgIdx = -1;
+	levelCorners.clear();
 
 }
 
@@ -81,6 +82,7 @@ void KeyFramePanel::handleImageSelected(int idx){
 		QStringList tokens = imgList->itemText(idx).split(rx);
 		imageView->setImage(imgRoot+"/"+tokens[tokens.size()-1]);
 		cout<<"KeyFramePanel image:["<<idx-1<<"]"<<(imgList->itemText(idx)).toStdString()<<endl;
+		levelCorners.clear();
 		//emit doComputeKeyFrame(idx-1);
 		emit imageChanged(idx);
 	}
@@ -91,8 +93,11 @@ void KeyFramePanel::handleComputeKeyFrameClicked(){
 	}
 }
 void KeyFramePanel::handleImageLevelSelected(int option){
+
 	int lvl = option-1;
 	cout<<"KeyFramePanel image level:"<<lvl<<endl;
+	if(levelCorners.empty()) return;
+
 	QList<bool> mask;
 	QList<QPointF> corners;
 

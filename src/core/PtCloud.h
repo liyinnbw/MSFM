@@ -147,6 +147,8 @@ public:
 
 	void removeRedundancy();
 
+	void sanityCheck();	//check certain assertions the data structure must always pass
+
 	bool hasPointNormal;
 
 	//data
