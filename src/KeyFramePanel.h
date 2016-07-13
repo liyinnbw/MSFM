@@ -38,6 +38,8 @@ public:
 	virtual ~KeyFramePanel();
 	void setImagePaths(const QString &root, const QList<QString> &list);
 	void drawProjection(const QList<QPointF> &verts);	//3 verts = 1 face
+	void handleImagesUsed(std::vector<int> &usedImgIdxs);
+	void handleImagesUsed2(std::vector<int> &usedImgIdxs);
 
 private:
 	void createWidgets();

@@ -80,6 +80,8 @@ public:
 
 	bool imageIsUsed(			const int					imgIdx);
 
+	bool imageIsUsed(			const std::string			&imgName);
+
 	void getXYZs( 				std::vector<cv::Point3f>	&xyzs) const;
 
 	void getPointNormals(		std::vector<cv::Point3f>	&norms) const;

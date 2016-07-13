@@ -84,7 +84,7 @@ public slots:
 	void bundleAdjust();
 	void handleBundleAdjustFinished();
 	void saveProject(const QString &, const int);
-	void loadProject(const QString &);
+	void loadProject(const QString &, const int);
 	void loadGPS(const QString &);
 	void loadPolygon(const QString &);
 	void deletePointIdx(const QList<int> idxs, const int cloudID);
@@ -107,6 +107,7 @@ public:
 	void getCameras(std::vector<cv::Matx34d> &cams);
 	void getCameras2(std::vector<cv::Matx34d> &cams);
 	void getUsedImageIdxs(std::vector<int> &usedImgIdxs);
+	void getUsedImageIdxs2(std::vector<int> &usedImgIdxs);
 	void getAll3DfromImage2D(	const int 					imgIdx,
 								std::vector<cv::Point3f>	&pts3D,
 								std::vector<int>			&pts3DIdxs);

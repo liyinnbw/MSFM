@@ -1160,9 +1160,23 @@ void SFMPipeline::saveProject(			const string 				&fname,
 	}
 }
 
-void SFMPipeline::loadProject(			const string				&fname)
+void SFMPipeline::loadProject(			const string				&fname,
+										const int					cloudIdx)
 {
-	ProjectIO::readProject(fname,camMat,distortionMat,ptCloud);
+	if(cloudIdx == 0){
+		ProjectIO::readProject(fname,camMat,distortionMat,ptCloud);
+	}else if (cloudIdx == 1){
+		ProjectIO::readProject(fname,camMat,distortionMat,ptCloud2);
+		//copy over ptCloud's img list and root.
+		/*ptCloud2.imgRoot = ptCloud.imgRoot;
+		for(int i=0; i<ptCloud2.imgs.size(); i++){
+			int pos = std::find(ptCloud.imgs.begin(), ptCloud.imgs.end(), ptCloud2.imgs[i]) - ptCloud.imgs.begin();
+			assert(pos<ptCloud.imgs.size());
+			ptCloud2.camMat2img[i]=pos;
+		}
+		ptCloud2.imgs = ptCloud.imgs;*/
+
+	}
 }
 
 void SFMPipeline::loadGPS(				const std::string			&fname)

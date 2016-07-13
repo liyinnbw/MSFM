@@ -142,6 +142,20 @@ void KeyFramePanel::handlePointsSelected(const QList<QPointF> & pts){
 		emit imagePointsSelected(imgIdx, pts);
 	}
 }
+void KeyFramePanel::handleImagesUsed(std::vector<int> &usedImgIdxs){
+	for(int i=0; i<imgList->count(); i++){
+		imgList->setItemData(i, Qt::black, Qt::TextColorRole);
+	}
+	for(int i=0; i<usedImgIdxs.size(); i++){
+		imgList->setItemData(usedImgIdxs[i]+1, Qt::yellow, Qt::TextColorRole);
+	}
+
+}
+void KeyFramePanel::handleImagesUsed2(std::vector<int> &usedImgIdxs){
+	for(int i=0; i<usedImgIdxs.size(); i++){
+		imgList->setItemData(usedImgIdxs[i]+1, Qt::red, Qt::TextColorRole);
+	}
+}
 void KeyFramePanel::drawProjection(const QList<QPointF> &verts){
 	QList<bool> mask;
 	for(int i = 0; i<verts.size(); i++){

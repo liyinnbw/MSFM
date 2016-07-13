@@ -427,6 +427,11 @@ void CoreInterfaceWidget::computeKeyFrame(const int imgIdx, KeyFrame &kf){
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
+	if(!core->ptCloud.imageIsUsed(imgIdx)){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","Image does not have a camera!");
+		return;
+	}
 	core->computeKeyFrame(imgIdx,kf);
 }
 
@@ -547,6 +552,24 @@ void CoreInterfaceWidget::getUsedImageIdxs(std::vector<int> &usedImgIdxs){
 	}
 	core->ptCloud.getUsedImageIdxs(usedImgIdxs);
 }
+void CoreInterfaceWidget::getUsedImageIdxs2(std::vector<int> &usedImgIdxs){
+	if(!coreIsSet()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","image folder is not loaded!");
+		return;
+	}
+	if(tt!=NULL && tt->isRunning()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","previous task is still running!");
+		return;
+	}
+	usedImgIdxs.clear();
+	for(int i=0; i<core->ptCloud.imgs.size(); i++){
+		if(core->ptCloud2.imageIsUsed(core->ptCloud.imgs[i])){
+			usedImgIdxs.push_back(i);
+		}
+	}
+}
 
 void CoreInterfaceWidget::getAll3DfromImage2D(	const int 					imgIdx,
 												std::vector<cv::Point3f>	&pts3D,
@@ -626,19 +649,35 @@ void CoreInterfaceWidget::saveProject(const QString &fname, const int cloudIdx){
 	core-> saveProject(fname.toStdString(), cloudIdx);
 }
 
-void CoreInterfaceWidget::loadProject(const QString &pname){
+void CoreInterfaceWidget::loadProject(const QString &pname, const int cloudIdx){
+	if (cloudIdx != 0){
+		if(!coreIsSet()){
+			QMessageBox messageBox;
+			messageBox.critical(0,"Error","CloudViewer 1 must be loaded first!");
+			return;
+		}
+	}
 	if(tt!=NULL && tt->isRunning()){
 		QMessageBox messageBox;
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
 	cout<<"core interface load project"<<endl;
-	setImagePaths(QString(), QList<QString>());	// just to recreate the core
-	core ->loadProject(pname.toStdString());
-	emit projectLoaded();
-	if(core->ptCloud.pt3Ds.size()>0){
-		emit pointCloudReady(true);
+	if (cloudIdx == 0){
+		setImagePaths(QString(), QList<QString>());	// just to recreate the core
 	}
+	core ->loadProject(pname.toStdString(), cloudIdx);
+
+
+	if (cloudIdx == 0){
+		emit projectLoaded();
+		if (core->ptCloud.pt3Ds.size()>0){
+			emit pointCloudReady(true);
+		}
+	}else if(cloudIdx == 1 && core->ptCloud2.pt3Ds.size()>0){
+		emit pointCloud2Ready(true);
+	}
+
 }
 
 void CoreInterfaceWidget::loadGPS(const QString &fname){
@@ -734,7 +773,7 @@ void CoreInterfaceWidget::projectPolygonToImage(	const int 						imgIdx,
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
-	cout<<"core interface project polygon to image "<<imgIdx<<endl;
+	cout<<"core interface project polygon to image ["<<imgIdx<<"]"<<endl;
 	vector<Point2f> verts;
 	vector<Point3i> faces;
 	core->projectPolygonToImage(imgIdx,verts,faces);
@@ -766,29 +805,43 @@ void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
 		messageBox.critical(0,"Error","previous task is still running!");
 		return;
 	}
-	cout<<"core interface add keyframe"<<endl;
-	if(core->ptCloud2.imageIsUsed(imgIdx)){
-		cout<<"keyframe already added"<<endl;
+	if(xys.empty()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","Corners is empty!");
 		return;
 	}
+	if(xyzs.empty()){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","no 3d points to add!");
+		return;
+	}
+	cout<<"core interface add keyframe"<<endl;
+	string imgName = core->ptCloud.imgs[imgIdx];
+	if(core->ptCloud2.imageIsUsed(imgName)){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","KeyFrame Already Added!");
+		return;
+	}
+
 	//set has normal
 	core->ptCloud2.hasPointNormal = true;
 
-	//add images
-	if(core->ptCloud2.imgs.empty()){
+	//add image
+	if(core->ptCloud2.imgs.empty() || core->ptCloud2.imgRoot!=core->ptCloud.imgRoot){
 		core->ptCloud2.imgRoot = core->ptCloud.imgRoot;
-		core->ptCloud2.imgs = core->ptCloud.imgs;
 	}
+	core->ptCloud2.imgs.push_back(core->ptCloud.imgs[imgIdx]);
 
 	//add camera
 	int camIdx = core->ptCloud.img2camMat[imgIdx];
 	core->ptCloud2.camMats.push_back(core->ptCloud.camMats[camIdx]);
 	int camIdx2= core->ptCloud2.camMats.size()-1;
-	core->ptCloud2.camMat2img[camIdx2] = imgIdx;
-	core->ptCloud2.img2camMat[imgIdx] = camIdx2;
+	int imgIdx2= core->ptCloud2.imgs.size()-1;
+	core->ptCloud2.camMat2img[camIdx2] = imgIdx2;
+	core->ptCloud2.img2camMat[imgIdx2] = camIdx2;
 
 	//add gps
-	core->ptCloud2.img2GPS[imgIdx] = core->ptCloud.img2GPS[imgIdx];
+	core->ptCloud2.img2GPS[imgIdx2] = core->ptCloud.img2GPS[imgIdx];
 	cout<<"gps = "<<core->ptCloud.img2GPS[imgIdx].first<<","<<core->ptCloud.img2GPS[imgIdx].second<<endl;
 
 	assert(xys.size() == xyzs.size());
@@ -805,17 +858,17 @@ void CoreInterfaceWidget::addKeyFrame(		const int 						imgIdx,
 
 		//add 2D
 		Pt2D pt2D;
-		pt2D.img_idx 	= imgIdx;
+		pt2D.img_idx 	= imgIdx2;
 		pt2D.pt 		= Point2f(xys[i].x(), xys[i].y());
 		pt2D.dec		= Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
-		if(core->ptCloud2.img2pt2Ds.find(imgIdx) == core->ptCloud2.img2pt2Ds.end()){
-			core->ptCloud2.img2pt2Ds[imgIdx] = vector<Pt2D>();
+		if(core->ptCloud2.img2pt2Ds.find(imgIdx2) == core->ptCloud2.img2pt2Ds.end()){
+			core->ptCloud2.img2pt2Ds[imgIdx2] = vector<Pt2D>();
 		}
-		core->ptCloud2.img2pt2Ds[imgIdx].push_back(pt2D);
+		core->ptCloud2.img2pt2Ds[imgIdx2].push_back(pt2D);
 
 		//link 2d 3d, Warning, assigning value to pt3D or pt2D will be wrong cos "push_back" copys the data
-		core->ptCloud2.pt3Ds.back().img2ptIdx[imgIdx] 		= core->ptCloud2.img2pt2Ds[imgIdx].size()-1;
-		core->ptCloud2.img2pt2Ds[imgIdx].back().pt3D_idx 	= core->ptCloud2.pt3Ds.size()-1;
+		core->ptCloud2.pt3Ds.back().img2ptIdx[imgIdx2] 		= core->ptCloud2.img2pt2Ds[imgIdx2].size()-1;
+		core->ptCloud2.img2pt2Ds[imgIdx2].back().pt3D_idx 	= core->ptCloud2.pt3Ds.size()-1;
 
 	}
 

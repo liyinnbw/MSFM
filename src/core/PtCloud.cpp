@@ -32,6 +32,9 @@ void PtCloud::clear(){
 bool PtCloud::imageIsUsed(	const int			imgIdx){
 	return (img2camMat.find(imgIdx) != img2camMat.end());
 }
+bool PtCloud::imageIsUsed(	const string		&imgName){
+	return (std::find(imgs.begin(), imgs.end(), imgName) != imgs.end());
+}
 void PtCloud::add2D(	const int 				imgIdx,
 						const vector<KeyPoint> 	&kpts,
 						const Mat 				&decs){

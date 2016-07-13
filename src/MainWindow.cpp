@@ -374,6 +374,7 @@ void MainWindow::handleDense(){
 }
 
 void MainWindow::handleKeyframeImagePointsSelected(const int imgIdx, const QList<QPointF> &pts){
+	assert(keyframeSelectedImgIdx == imgIdx);
 	statusBar()->showMessage(tr("project points to 3d surface..."));
 	QList<QVector3D> xyzs;
 	QList<QVector3D> norms;
@@ -399,7 +400,6 @@ void MainWindow::handleKeyframeImagePointsSelected(const int imgIdx, const QList
 	cloudViewer->highlightPoints(intersects, camIdx);
 	cout<<intersects.size()<<" intersections found"<<endl;
 
-	mImgIdx = imgIdx;
 	mxys 	= pts;
 	mxyzs	= xyzs;
 	mnorms	= norms;
@@ -515,11 +515,13 @@ void MainWindow::displayPointCloud(bool resetView){
 	vector<int>	useImgIdxs;
 	coreInterface->getUsedImageIdxs(useImgIdxs);
 	matchPanel->handleImagesUsed(useImgIdxs);
+	keyframePanel->handleImagesUsed(useImgIdxs);
 	statusBar()->showMessage(tr("image list updated"));
 
 }
 void MainWindow::displayPointCloud2(bool resetView){
 	statusBar()->showMessage(tr("refreshing cloud2..."));
+	cout<<"display pointcloud 2"<<endl;
 	vector<Point3f> xyzs, norms;
 	coreInterface->getPointCloud2(xyzs);
 	if(showNormal){
@@ -529,6 +531,14 @@ void MainWindow::displayPointCloud2(bool resetView){
 	coreInterface->getCameras2(cams);
 	cloudViewer2->loadCloudAndCamera(xyzs, norms, cams, resetView);
 	statusBar()->showMessage(tr("cloud2 refreshed"));
+
+	//also update keyframe image lists to highlight images
+	vector<int>	useImgIdxs;
+	coreInterface->getUsedImageIdxs(useImgIdxs);
+	keyframePanel->handleImagesUsed(useImgIdxs);
+	coreInterface->getUsedImageIdxs2(useImgIdxs);
+	keyframePanel->handleImagesUsed2(useImgIdxs);
+	statusBar()->showMessage(tr("image list updated"));
 
 }
 void MainWindow::displayPolygon(bool resetView){
@@ -569,7 +579,8 @@ void MainWindow::handlePolygonRenderToggle(){
 }
 void MainWindow::handleAddKeyFrame(){
 	statusBar()->showMessage(tr("adding keyframe..."));
-	coreInterface->addKeyFrame(mImgIdx, mxys, mxyzs, mnorms, mstatus);
+	cout<<"adding img["<<keyframeSelectedImgIdx<<"] as keyframe"<<endl;
+	coreInterface->addKeyFrame(keyframeSelectedImgIdx, mxys, mxyzs, mnorms, mstatus);
 }
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	displayPointCloud(false);	//to reset previous highlights just reload the point cloud
@@ -615,7 +626,7 @@ void MainWindow::openFile()
 		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)\nTINY files (*.tiny)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
-    	coreInterface -> loadProject(fileName);
+    	coreInterface -> loadProject(fileName, tabs2->currentIndex());
     }
 }
 void MainWindow::openGPSFile(){

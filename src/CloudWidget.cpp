@@ -554,9 +554,10 @@ void CloudWidget::loadPolygonAndCamera(const vector<Point3f> &verts, const vecto
 		  renderer->ResetCamera();	//move camera to cloud center
 	  }
 
-	if(numCloudPoints>0){
-	  enableInteraction();
-	}
+	  if(points->GetNumberOfPoints()>0 ){
+	  	  cout<<"interaction enabled"<<endl;
+	  	  enableInteraction();
+	    }
 
 }
 
@@ -735,7 +736,9 @@ void CloudWidget::loadCloudAndCamera(const vector<Point3f> &xyzs, const vector<P
 	  renderer->ResetCamera();	//move camera to cloud center
   }
 
-  if(numCloudPoints>0){
+
+  if(points->GetNumberOfPoints()>0 ){
+	  cout<<"interaction enabled"<<endl;
 	  enableInteraction();
   }
 

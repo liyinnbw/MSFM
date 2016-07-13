@@ -110,9 +110,8 @@ private:
 	QString 				imageRoot;
 	bool					showNormal;
 	bool					showPolygon;
-	int						keyframeSelectedImgIdx;
 
-	int						mImgIdx;
+	int						keyframeSelectedImgIdx;
 	QList<QPointF> 			mxys;
 	QList<QVector3D> 		mxyzs;
 	QList<QVector3D> 		mnorms;

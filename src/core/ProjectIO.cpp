@@ -276,9 +276,11 @@ void ProjectIO::writeProject(	const string			&fname,
 		myfile<<"Cams_start"<<endl;
 		const map<int, int>& camMat2img 		= ptCloud.camMat2img;
 		const map<int, pair<double, double> > &img2GPS = ptCloud.img2GPS;
+		cout<<" projectIO, write tiny, camera cnt = "<<ptCloud.camMats.size()<<endl;
 		for(int i=0; i<ptCloud.camMats.size(); i++){
 			int imgIdx = -1;
 			assert(ptCloud.getImageIdxByCameraIdx(i, imgIdx));
+			cout<<"cam "<<i<<" img "<<imgIdx<<endl;
 			//cam id
 			myfile<<i<<" ";
 

@@ -158,7 +158,8 @@ public:
 	void saveProject(			const std::string 				&fname,
 								const int						cloudIdx);
 
-	void loadProject(			const std::string				&fname);
+	void loadProject(			const std::string				&fname,
+								const int						cloudIdx);
 
 	void loadGPS(				const std::string				&fname);
 
