@@ -253,10 +253,8 @@ void ProjectIO::writeProject(	const string			&fname,
 		double fx= f/imgW;
 		double fy= f/imgH;
 		myfile<<"CamParam: "<<imgW<<" "<<imgH<<" "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
-		if(ptCloud.hasPointNormal)
-			myfile<<"HasNormal: 1"<<endl;
-		else
-			myfile<<"HasNormal: 0"<<endl;
+		myfile<<"HasNormal: "<<ptCloud.hasPointNormal<<endl;
+		myfile<<"HasGPS: "<<ptCloud.hasGPS<<endl;
 		myfile<<"ImgRoot: "<<ptCloud.imgRoot<<endl;
 		//save points
 		myfile<<"Points_start"<<endl;
@@ -308,7 +306,65 @@ void ProjectIO::writeProject(	const string			&fname,
 		}
 		myfile<<"Cams_end"<<endl;
 
+		myfile.close();
+	}
+	//if .tiny2
+	else if(Utils::endsWith(fname,".tiny2")){
+		ofstream myfile;
+		myfile.open (filename.c_str());
 
+		//save calibration
+		//XXX: assumed principle is the image center, assumed same x,y focal
+		//TODO: change the small distortion to zero
+		int imgW = camIntrinsicMat.at<double>(0,2)*2;
+		int imgH = camIntrinsicMat.at<double>(1,2)*2;
+		double f = camIntrinsicMat.at<double>(0,0);
+		double fx= f/imgW;
+		double fy= f/imgH;
+		myfile<<"CamParam: "<<imgW<<" "<<imgH<<" "<<setprecision(17)<<fx<<" "<<fy<<" "<<0.5<<" "<<0.5<<" "<<1e-6<<endl;
+		myfile<<"HasNormal: "<<ptCloud.hasPointNormal<<endl;
+		myfile<<"HasGPS: "<<ptCloud.hasGPS<<endl;
+		myfile<<"ImgRoot: "<<ptCloud.imgRoot<<endl;
+
+		//save camera
+		myfile<<"Cams_start"<<endl;
+		const map<int, int>& camMat2img 		= ptCloud.camMat2img;
+		const map<int, pair<double, double> > &img2GPS = ptCloud.img2GPS;
+		cout<<" projectIO, write tiny2, camera cnt = "<<ptCloud.camMats.size()<<endl;
+		for(int i=0; i<ptCloud.camMats.size(); i++){
+			int imgIdx = -1;
+			assert(ptCloud.getImageIdxByCameraIdx(i, imgIdx));
+			cout<<"cam "<<i<<" img "<<imgIdx<<endl;
+			//cam id
+			myfile<<i<<" ";
+			//lat lon
+			double lat, lon;
+			assert(ptCloud.getImageGPS(imgIdx, lat, lon));
+			myfile<<setprecision(17)<<lat<<" "<<lon<<" ";
+			//image name
+			string imgName = ptCloud.imgs[imgIdx];
+			myfile<<imgName<<" ";
+			//pose
+			Mat r, t;
+			ptCloud.getCamRvecAndT(i, r, t);
+			myfile<<setprecision(17)<<r.at<double>(0)<<" "<<r.at<double>(1)<<" "<<r.at<double>(2)<<" "<<t.at<double>(0)<<" "<<t.at<double>(1)<<" "<<t.at<double>(2)<<" ";
+			//measurements 2d and 3d
+			vector<Point2f> xys;
+			vector<int>		pt3DIdxs;
+			ptCloud.getImageMeasurements(imgIdx,xys,pt3DIdxs);
+			assert(xys.size() == pt3DIdxs.size());
+			myfile<<pt3DIdxs.size()<<" ";
+			for(int j=0; j<pt3DIdxs.size(); j++){
+				const Point3f &pt3D = ptCloud.pt3Ds[pt3DIdxs[j]].pt;
+				myfile<<setprecision(17)<<xys[j].x<<" "<<xys[j].y<<" "<<pt3D.x<<" "<<pt3D.y<<" "<<pt3D.z<<" ";
+				if(ptCloud.hasPointNormal){
+					const Point3f &norm = ptCloud.pt3Ds[pt3DIdxs[j]].norm;
+					myfile<<norm.x<<" "<<norm.y<<" "<<norm.z<<" ";
+				}
+			}
+			myfile<<endl;
+		}
+		myfile<<"Cams_end"<<endl;
 
 		myfile.close();
 	}
@@ -815,41 +871,21 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 		cout<<ptCloud.pt3Ds.size()<<" 3D points read"<<endl;
 
 	}else if(Utils::endsWith(fname,".tiny")){
-		cout<<"file format: patch"<<endl;
+		cout<<"file format: tiny"<<endl;
 		ifstream infile(fname.c_str());
 		string line;
+		bool readCam = false;
+		bool readPts = false;
+		int camCount = 0;
+		int ptsCount = 0;
 		while (getline(infile, line)){
-			if(line.find("CamParam:")!=line.npos){
-				istringstream iss(line);
-				string nouse;
-				int imgW,imgH;
-				double fx,fy,ppx,ppy,r;
-				iss>>nouse>>imgW>>imgH>>fx>>fy>>ppx>>ppy>>r;
-				double camMatArr[9] 		= { fx*imgW, 	0.0, 		ppx*imgW,
-												0.0, 		fy*imgH, 	ppy*imgH,
-												0.0,		0.0,		1.0 };
-				double distortCoeffArr[5] 	= { 0, 0, 0, 0, 0 };	//assume no distortion
-				Mat CM(3, 3, CV_64F, camMatArr);
-				Mat DM(1, 5, CV_64F, distortCoeffArr);
-				camIntrinsicMat = CM.clone();	//must copy the data else they will be destroyed after constructor
-				camDistortionMat= DM.clone();	//must copy the data else they will be destroyed after constructor
-				cout<<camIntrinsicMat<<endl;
-				cout<<camDistortionMat<<endl;
-
-			}else if(line.find("ImgRoot:")!=line.npos){
-				istringstream iss(line);
-				string nouse;
-				iss>>nouse>>ptCloud.imgRoot;
-			}else if(line.find("HasNormal:")!=line.npos){
-				istringstream iss(line);
-				string nouse;
-				iss>>nouse>>ptCloud.hasPointNormal;
-			}else if(line == "Points_start"){
-				string line2;
-				getline(infile, line2);
-				while(line2!="Points_end"){
-					istringstream iss(line2);
-
+			if(readPts){
+				if(line=="Points_end"){	//simple equal comparison to minize computation
+					readPts = false;
+					assert(ptsCount == ptCloud.pt3Ds.size());
+					cout<<"total "<<ptsCount<<" points read"<<endl;
+				}else{
+					istringstream iss(line);
 					//get 3d coordinates
 					int id;
 					double x,y,z;
@@ -865,15 +901,15 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 					}
 
 					ptCloud.pt3Ds.push_back(pt3D);
-					getline(infile, line2);
+					ptsCount++;
 				}
-				cout<<"total "<<ptCloud.pt3Ds.size()<<" points read"<<endl;
-
-			}else if(line == "Cams_start"){
-				string line2;
-				getline(infile, line2);
-				while(line2!="Cams_end"){
-					istringstream iss(line2);
+			}else if(readCam){
+				if(line=="Cams_end"){
+					readCam = false;
+					assert(camCount == ptCloud.imgs.size());
+					cout<<"total "<<camCount<<" images & cameras read"<<endl;
+				}else{
+					istringstream iss(line);
 					int id, measureCnt;
 					double lat, lon;
 					double r[3];
@@ -918,15 +954,152 @@ void ProjectIO::readProject(	const string			&fname,				//including root
 						assert(ptCloud.pt3Ds[pt3DIdx].img2ptIdx.find(imgIdx) == ptCloud.pt3Ds[pt3DIdx].img2ptIdx.end());
 						ptCloud.pt3Ds[pt3DIdx].img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
 					}
-
-					getline(infile, line2);
+					camCount++;
 				}
-				cout<<"total "<<ptCloud.imgs.size()<<" images & cameras read"<<endl;
+			}else{
+				if(line.find("CamParam:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					int imgW,imgH;
+					double fx,fy,ppx,ppy,r;
+					iss>>nouse>>imgW>>imgH>>fx>>fy>>ppx>>ppy>>r;
+					double camMatArr[9] 		= { fx*imgW, 	0.0, 		ppx*imgW,
+													0.0, 		fy*imgH, 	ppy*imgH,
+													0.0,		0.0,		1.0 };
+					double distortCoeffArr[5] 	= { 0, 0, 0, 0, 0 };	//assume no distortion
+					Mat CM(3, 3, CV_64F, camMatArr);
+					Mat DM(1, 5, CV_64F, distortCoeffArr);
+					camIntrinsicMat = CM.clone();	//must copy the data else they will be destroyed after constructor
+					camDistortionMat= DM.clone();	//must copy the data else they will be destroyed after constructor
+					cout<<camIntrinsicMat<<endl;
+					cout<<camDistortionMat<<endl;
+
+				}else if(line.find("ImgRoot:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.imgRoot;
+				}else if(line.find("HasNormal:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.hasPointNormal;
+				}else if(line.find("HasGPS:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.hasGPS;
+				}else if(line.find("Points_start")!=line.npos){
+					readPts = true;
+				}else if(line.find("Cams_start")!=line.npos){
+					readCam = true;
+				}
+			}
+		}
+	}else if(Utils::endsWith(fname,".tiny2")){
+		cout<<"file format: tiny2"<<endl;
+		ifstream infile(fname.c_str());
+		string line;
+		bool readCam = false;
+		int camCount = 0;
+		while (getline(infile, line)){
+			if(readCam){
+				if(line=="Cams_end"){	//simple equal comparison to minimize computation
+					readCam = false;
+					assert(camCount == ptCloud.imgs.size());
+					cout<<"total "<<camCount<<" images & cameras read"<<endl;
+				}else{
+					istringstream iss(line);
+					int id, measureCnt;
+					double lat, lon;
+					double r[3];
+					double t[3];
+					string imgName;
+					iss>>id>>lat>>lon>>imgName>>r[0]>>r[1]>>r[2]>>t[0]>>t[1]>>t[2]>>measureCnt;
+
+					//cam mat
+					Mat rvec = Mat(3,1,CV_64F,r);
+					Mat R;
+					Rodrigues(rvec, R);
+					Matx34d camMat = Matx34d(	R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t[0],
+												R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), t[1],
+												R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), t[2]);
+
+					int imgIdx = ptCloud.imgs.size();
+					int camIdx = ptCloud.camMats.size();
+
+					//add image, camMat
+					ptCloud.imgs.push_back(imgName);
+					ptCloud.camMats.push_back(camMat);
+
+					//add data associations
+					ptCloud.img2camMat[imgIdx] = camIdx;
+					ptCloud.camMat2img[camIdx] = imgIdx;
+
+					//add GPS
+					ptCloud.img2GPS[imgIdx] = make_pair(lat,lon);
+
+					//add 2d & 3d
+					ptCloud.img2pt2Ds[imgIdx] = vector<Pt2D>();
+					while(measureCnt-->0){
+						float x,y,x3,y3,z3;
+						iss>>x>>y>>x3>>y3>>z3;
+
+						//add 2d
+						Pt2D pt2D;
+						pt2D.pt = Point2f(x, y);
+						pt2D.img_idx = imgIdx;
+						pt2D.pt3D_idx = ptCloud.pt3Ds.size();
+						pt2D.dec = Mat(1,32, CV_8UC1, Scalar(0)); // dummy orb descriptor
+						ptCloud.img2pt2Ds[imgIdx].push_back(pt2D);
+
+						//add 3d
+						Pt3D pt3D;
+						pt3D.pt = Point3f(x3,y3,z3);
+						if(ptCloud.hasPointNormal){
+							double nx, ny, nz;
+							iss>>nx>>ny>>nz;
+							pt3D.norm = Point3f(nx,ny,nz);	//by right this should already been normalized
+						}
+						pt3D.img2ptIdx[imgIdx] = ptCloud.img2pt2Ds[imgIdx].size()-1;
+						ptCloud.pt3Ds.push_back(pt3D);
+					}
+					camCount++;
+				}
+			}else{
+				if(line.find("CamParam:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					int imgW,imgH;
+					double fx,fy,ppx,ppy,r;
+					iss>>nouse>>imgW>>imgH>>fx>>fy>>ppx>>ppy>>r;
+					double camMatArr[9] 		= { fx*imgW, 	0.0, 		ppx*imgW,
+													0.0, 		fy*imgH, 	ppy*imgH,
+													0.0,		0.0,		1.0 };
+					double distortCoeffArr[5] 	= { 0, 0, 0, 0, 0 };	//assume no distortion
+					Mat CM(3, 3, CV_64F, camMatArr);
+					Mat DM(1, 5, CV_64F, distortCoeffArr);
+					camIntrinsicMat = CM.clone();	//must copy the data else they will be destroyed after constructor
+					camDistortionMat= DM.clone();	//must copy the data else they will be destroyed after constructor
+					cout<<camIntrinsicMat<<endl;
+					cout<<camDistortionMat<<endl;
+				}else if(line.find("ImgRoot:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.imgRoot;
+				}else if(line.find("HasNormal:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.hasPointNormal;
+				}else if(line.find("HasGPS:")!=line.npos){
+					istringstream iss(line);
+					string nouse;
+					iss>>nouse>>ptCloud.hasGPS;
+				}else if(line.find("Cams_start")!=line.npos){
+					readCam = true;
+				}
 			}
 		}
 	}
 
-	if(!Utils::endsWith(fname,".tiny")){
+	if(!Utils::endsWith(fname,".tiny") && !Utils::endsWith(fname,".tiny2")){
 		for(int i=0; i<ptCloud.camMats.size(); i++){
 			int imgIdx = ptCloud.camMat2img[i];
 			ptCloud.img2GPS[imgIdx] = make_pair(0,0);	//dummy
@@ -970,6 +1143,7 @@ void ProjectIO::readGPS(	const std::string			&fname,
 		for(map<int, pair<double,double> >::iterator it = ptCloud.img2GPS.begin(); it!=ptCloud.img2GPS.end(); ++it){
 			cout<<setprecision(20)<<ptCloud.imgs[it->first]<<" ("<<it->second.first<<","<<it->second.second<<")"<<endl;
 		}
+		ptCloud.hasGPS = true;
 	}
 }
 void ProjectIO::readPolygon(	const std::string			&fname,

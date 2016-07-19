@@ -516,6 +516,8 @@ void MainWindow::displayPointCloud(bool resetView){
 	coreInterface->getUsedImageIdxs(useImgIdxs);
 	matchPanel->handleImagesUsed(useImgIdxs);
 	keyframePanel->handleImagesUsed(useImgIdxs);
+	coreInterface->getUsedImageIdxs2(useImgIdxs);
+	keyframePanel->handleImagesUsed2(useImgIdxs);
 	statusBar()->showMessage(tr("image list updated"));
 
 }
@@ -623,7 +625,7 @@ void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("Open Project"), "/home/yoyo/Desktop/data/save",
-		tr("YAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)\nTINY files (*.tiny)"));
+		tr("TINY files (*.tiny)\nTINY2 files (*.tiny2)\nYAML files (*.yaml)\nNVM files (*.nvm)\nPATCH files (*.patch)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
     	coreInterface -> loadProject(fileName, tabs2->currentIndex());
@@ -681,10 +683,12 @@ void MainWindow::saveFileAs(){
 	QString ext;
 	QString fileName = fd.getSaveFileName(this,
 	        tr("Save Project"), "/home/yoyo/Desktop/data/save",
-	        tr("TINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)\nSKTXT files (*.sktxt)"), &ext);
+	        tr("TINY2 files (*.tiny2)\nTINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)\nSKTXT files (*.sktxt)"), &ext);
 
 	if (!fileName.isEmpty()){
-		if(ext=="TINY files (*.tiny)"){
+		if(ext=="TINY2 files (*.tiny2)"){
+			fileName+=".tiny2";
+		}else if(ext=="TINY files (*.tiny)"){
 			fileName+=".tiny";
 		}else if(ext=="PLY files (*.ply)"){
 			fileName+=".ply";

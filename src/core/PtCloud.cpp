@@ -22,6 +22,7 @@ PtCloud::~PtCloud() {
 void PtCloud::clear(){
 	imgRoot = "";
 	hasPointNormal = false;
+	hasGPS 		   = false;
 	imgs.clear();
 	pt3Ds.clear();
 	img2pt2Ds.clear();

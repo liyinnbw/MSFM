@@ -152,6 +152,7 @@ public:
 	void sanityCheck();	//check certain assertions the data structure must always pass
 
 	bool hasPointNormal;
+	bool hasGPS;
 
 	//data
 	std::string 						imgRoot;
