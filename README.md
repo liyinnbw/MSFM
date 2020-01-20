@@ -12,7 +12,7 @@ This tool enables user to load a sequence of images and do sparse 3D point cloud
 5. Visualization of reconstructed point cloud and camera pose.
 
 ## Required Libraries
-1. Qt4
+1. Qt4 with VTK
 2. LibCVD
 3. Agast
 4. tinyxml2 (unecessary dependency planning of removal)
