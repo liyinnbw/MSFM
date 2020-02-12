@@ -11,12 +11,15 @@ This tool enables user to load a sequence of images and do sparse 3D point cloud
 4. Bundle adjustment.
 5. Visualization of reconstructed point cloud and camera pose.
 
-## Required Libraries
-1. Qt4 with VTK
-2. LibCVD
-3. Agast
-4. tinyxml2 (unecessary dependency planning of removal)
+## Required Preinstalled Libraries
+1. Cmake v3.0 and above (for compile)
+2. OpenCV (for computer vision package)
+3. Qt4 with VTK (for user interface)
+4. blas and lapack (for speedy computation)
 
 ## Compile
 1. cmake .
 2. make
+
+## Run
+./ManualSFM
