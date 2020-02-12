@@ -1,0 +1,10 @@
+prefix=/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2
+exec_prefix=${prefix}
+libdir=/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/lib
+includedir=/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/include
+
+Name: TinyXML2
+Description: simple, small, C++ XML parser
+Version: 2.2.0
+Libs: -L${libdir} -ltinyxml2
+Cflags: -I${includedir}

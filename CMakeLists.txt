@@ -96,18 +96,18 @@ QT4_WRAP_CPP(MOC ${HEADERS})
 
 include_directories(
   include
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/TooN/include 
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/libcvd/include 
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/gvars3/include 
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/agast/include
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/tinyxml2/include
+  ${PROJECT_SOURCE_DIR}/thirdparty/TooN/include 
+  ${PROJECT_SOURCE_DIR}/thirdparty/libcvd/include 
+  ${PROJECT_SOURCE_DIR}/thirdparty/gvars3/include 
+  ${PROJECT_SOURCE_DIR}/thirdparty/agast/include
+  ${PROJECT_SOURCE_DIR}/thirdparty/tinyxml2/include
 )  
 
 link_directories(
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/libcvd/lib 
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/gvars3/lib 
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/agast/lib
-  ${PROJECT_SOURCE_DIR}/../CamTrack/thirdparty/tinyxml2/lib
+  ${PROJECT_SOURCE_DIR}/thirdparty/libcvd/lib 
+  ${PROJECT_SOURCE_DIR}/thirdparty/gvars3/lib 
+  ${PROJECT_SOURCE_DIR}/thirdparty/agast/lib
+  ${PROJECT_SOURCE_DIR}/thirdparty/tinyxml2/lib
 )
 
 set(PTAM_LIBRARIES GL glut cvd GVars3_headless agast tinyxml2 blas lapack)

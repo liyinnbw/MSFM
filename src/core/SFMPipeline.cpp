@@ -1078,7 +1078,7 @@ void SFMPipeline::keepMinSpanCameras(){
 		pt3DIdxsCovered |= maxNewPt3DIdxsCovered;
 		int ptsCovered2 = countNonZero(pt3DIdxsCovered);
 		int newPtsCovered = ptsCovered2 - ptsCovered;
-		if(newPtsCovered < ptsSize*0.002){
+		if(newPtsCovered < ptsSize*0.01){
 			break;
 		}
 		ptsCovered = ptsCovered2;

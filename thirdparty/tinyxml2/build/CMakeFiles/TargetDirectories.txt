@@ -1,0 +1,3 @@
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/build/CMakeFiles/xmltest.dir
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/build/CMakeFiles/tinyxml2.dir
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/build/CMakeFiles/DATA_COPY.dir

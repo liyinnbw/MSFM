@@ -1,0 +1,1 @@
+/usr/bin/c++      CMakeFiles/xmltest.dir/xmltest.cpp.o  -o xmltest -rdynamic libtinyxml2.so.2.2.0 -Wl,-rpath,/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/build 

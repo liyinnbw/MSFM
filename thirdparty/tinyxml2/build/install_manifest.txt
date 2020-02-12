@@ -1,0 +1,5 @@
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/lib/libtinyxml2.so.2.2.0
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/lib/libtinyxml2.so.2
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/lib/libtinyxml2.so
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/include/tinyxml2.h
+/home/yoyo/workspace/CamTrack/thirdparty/tinyxml2/lib/pkgconfig/tinyxml2.pc

@@ -484,6 +484,31 @@ void MainWindow::handleLineCommand(){
 		}
 		cout<<endl;
 		coreInterface->ApplyGlobalTransformation(vals);
+	}else if(tokens[0].toLower().compare("keep")==0){
+		std::vector<int> vals;
+		for(int i=1; i<tokens.size(); i++){
+			vals.push_back(tokens.at(i).toInt());
+		}
+		for(vector<int>::iterator it=vals.begin(); it!=vals.end(); ++it){
+			cout<<(*it)<<" ";
+		}
+		cout<<endl;
+		vector<int> usedImgIdxs;
+		vector<int> deleteImgIdxs;
+		coreInterface->getUsedImageIdxs(usedImgIdxs);
+		for(int i=0; i<usedImgIdxs.size(); i++){
+			bool toDelete = true;
+			for(int j=0; j<vals.size(); j++){
+				if (usedImgIdxs[i] == vals[j]){
+					toDelete = false;
+					break;
+				}
+			}
+			if(toDelete){
+				deleteImgIdxs.push_back(usedImgIdxs[i]);
+			}
+		}
+		coreInterface->deleteCameraByImageIdxs(deleteImgIdxs);
 	}
 	/*
 	std::vector<double> vals;
