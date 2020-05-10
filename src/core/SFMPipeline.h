@@ -1,9 +1,6 @@
 /*
- * SFMModules.h
- *
- *  Created on: Mar 11, 2016
- *      Author: yoyo
- */
+* API for 3D reconstruction using sequential images
+*/
 
 #ifndef SFMPIPELINE_H_
 #define SFMPIPELINE_H_
@@ -12,10 +9,14 @@
 #include <vector>
 #include <string>
 #include <opencv2/core/core.hpp>
+#include <Eigen/Eigen>
+// #include <opengv/relative_pose/CentralRelativeAdapter.hpp>
 
-#include "PtCloud.h"
-#include "PolygonModel.h"
-struct KeyFrame;
+#include "datastructs/Frame.h"
+#include "datastructs/LandMark.h"
+#include "datastructs/Measurement.h"
+class Data;
+
 class SFMPipeline {
 public:
 	SFMPipeline(				const std::string 				&root,
@@ -26,14 +27,12 @@ public:
 	void getNextPair(			int &imgIdx1,
 								int &imgIdx2);
 
-	void getBestPairInRange(	const int start,
-								const int end,
-								int &imgIdx1,
-								int &imgIdx2);
+	double FindHomographyInliers(const std::vector<cv::Point2f> &pts1,
+								const std::vector<cv::Point2f> 	&pts2);
 
-	void processBasePair();
-
-	void processNextPair();
+	bool checkMatchesBasePair(	const std::vector<cv::Point2f>  &kpts1,
+								const std::vector<cv::Point2f>  &kpts2,
+								const std::vector<cv::DMatch> 	&matches);
 
 	bool checkMatchesBasePair(	const std::vector<cv::KeyPoint> &kpts1,
 								const std::vector<cv::KeyPoint> &kpts2,
@@ -45,65 +44,111 @@ public:
 								const std::vector<cv::KeyPoint> &kpts2,
 								const std::vector<cv::DMatch> 	&matches);
 
-	bool checkMatchesAddNewMeasures(
-								const std::vector<cv::KeyPoint> &kpts1,		//this is the newly added image(tryImg)
-								const std::vector<cv::KeyPoint> &kpts2,		//this is an already added image
+	bool reconstructBasePair(	const int						imgIdx1,	//this will have identity camera projection
+								const int						imgIdx2);
+
+	bool reconstructBasePair(	Frame::Ptr 						&frame1,	//this will have identity camera projection
+								Frame::Ptr						&frame2,
 								const std::vector<cv::DMatch> 	&matches);
 
-	void reconstructBasePair(	const int						imgIdx1,	//this will have identity camera projection
-								const int						imgIdx2,
-								const std::vector<cv::KeyPoint> &kpts1,
-								const std::vector<cv::KeyPoint> &kpts2,
-								const cv::Mat					&decs1,
-								const cv::Mat 					&decs2,
-								const std::vector<cv::DMatch> 	&matches);
+	// bool reconstructBasePair_gv(Frame::Ptr 						&frame1,	//this will have identity camera projection
+	// 							Frame::Ptr						&frame2,
+	// 							const std::vector<cv::DMatch> 	&matches);
 
-	void reconstructNextPair(	const int						imgIdx1,	//this will be new image (tryImg)
-								const int						imgIdx2,	//this must be already added image (anchorImg)
-								const std::vector<cv::KeyPoint> &kpts1,
-								const std::vector<cv::KeyPoint> &kpts2,
-								const cv::Mat					&decs1,
-								const cv::Mat 					&decs2,
-								const std::vector<cv::DMatch> 	&matches);
+	bool positionAndAddFrame(	Frame::Ptr						&frame);
 
-	void addNewMeasures(		const int						imgIdx1,	//this is the newly added image (tryImg)
-								const int						imgIdx2);	//this must be already added image (anchorImg)
+	bool positionAndAddFrame(	const int 						imgIdx);
 
-	bool isGoodMatch(			const std::vector<cv::Point2f> 	&pts1,
-								const std::vector<cv::Point2f> 	&pts2,
-								const double					&thresh);
+	std::vector<Measurement::Ptr>											//do not add frame to data.frames
+	positionFrame		(		Frame::Ptr						&frame,
+								const bool						&usePosePrior = false);
 
-	double FindHomographyInliers(const std::vector<cv::Point2f> &pts1,
-								const std::vector<cv::Point2f> 	&pts2);
+	std::vector<Measurement::Ptr>											//do not add frame to data.frames
+	solvePnP			(		Frame::Ptr							&frame,
+								const std::vector<Measurement::Ptr>	&unprunedMs,
+								const double						error	= 8.0,
+								const double 						confi 	= 0.99,
+								const int							iter	= 1000);
 
-	void matchFeatures(			const cv::Mat &decs1,
-								const cv::Mat &decs2,
-								std::vector<cv::DMatch> &matches);
+	// std::vector<Measurement::Ptr>											//do not add frame to data.frames
+	// solvePnP_gv			(		Frame::Ptr							&frame,
+	// 							const std::vector<Measurement::Ptr>	&unprunedMs,
+	// 							const double						thresh	= 1e-6,
+	// 							const double 						confi 	= 0.99,
+	// 							const int							iter	= 1000,
+	// 							const bool 							useAll	= false);
+
+	// std::vector<Measurement::Ptr>
+	// optimizeCamPose_gv(			Frame::Ptr							&frame,
+	// 							const std::vector<Measurement::Ptr>	&ms,
+	// 							const double 						errorThresh,
+	// 							const int							iter 		= 0,
+	// 							const int							maxOctave 	= -1);
+
+	//the opengv triangulate2 is lacking some checking, added in this version
+	// Eigen::Vector3d triangulate3(const opengv::relative_pose::RelativeAdapterBase & adapter,
+	// 	    					size_t 												index,
+	// 							double												sigma,
+	// 							bool& 												isValid,
+	// 							bool& 												isParallel);
+
+	void epipolarConstrainedMatchMask(	const int 				imgIdx1,	//from a point in img1
+										const int				imgIdx2,	//to possible epipolar matches in img2
+										cv::Mat					&mask);
+
+	bool addMoreMeasures			( 	Frame::Ptr				&frame);
+
+	void addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both images must have pose available
+										Frame::Ptr				&frame2);
 
 
-	void findEandPruneMatches(	const std::vector<cv::Point2f> 	&pts1,
-								const std::vector<cv::Point2f> 	&pts2,
-								const std::vector<cv::DMatch> 	&matches,
-								std::vector<cv::DMatch> 		&prunedMatches,
-								cv::Mat &E);
+	void addMoreLandMarksAndMeasures(	const int 				imgIdx1,	//both images must have pose available
+										const int				imgIdx2);
 
-	void separateMatches(		const int 						imgIdx,
-								const int 						useTrainIdx,
-								const std::vector<cv::DMatch> 	&matches,
-								std::vector<cv::DMatch>			&matchesHas3D,
-								std::vector<cv::DMatch>			&matchesNo3D);
+	// void addMoreLandMarksAndMeasures_gv(const int 				imgIdx1,	//both images must have pose available
+	// 									const int				imgIdx2);
 
-	void getMatchesHas3DSecondViewOnly(
-								const int						imgIdx1,
-								const int 						imgIdx2,
-								const std::vector<cv::DMatch>	&matches,
-								std::vector<cv::DMatch>			&prunedMatches);
+	void matchFrames(			const Frame::Ptr				&frame1,
+								const Frame::Ptr				&frame2,
+								std::vector<cv::DMatch> 		&matches);
 
-	void maskMatchesNo3D(		const int						imgIdx1,
-								const int 						imgIdx2,
-								const std::vector<cv::DMatch>	&matches,
-								std::vector<bool>				&mask);
+	void matchFeatures(			const cv::Mat 					&decs1,
+								const cv::Mat					&decs2,
+								std::vector<cv::DMatch> 		&matches,
+								const cv::Mat 					&mask12 = cv::Mat(),
+								const cv::Mat 					&mask21 = cv::Mat());
 
+	// void matchByBOW(			const Frame::Ptr 				&frame1,
+	// 							const Frame::Ptr 				&frame2,
+	// 							std::vector<cv::DMatch> 		&matches,
+	// 							const double					testRatio 				= 0.8,
+	// 							const int						distThresh				= 256,
+	// 							const bool 						onlyMeasured			= false);
+
+	void matchByProjection(		const Frame::Ptr 				&frame1,
+								const Frame::Ptr 				&frame2,
+								const int						radius,
+								std::vector<cv::DMatch> 		&matches,
+								const bool						excludeAlreadyMeasured = false);
+
+	std::vector<Measurement::Ptr>
+	getMoreMeasuresByProjection(const Frame::Ptr 					&frame1,			//frame which you need more measures
+								const Frame::Ptr 					&frame2				= nullptr,		//reference frame
+								const std::vector<Measurement::Ptr> &existingMeasures 	= std::vector<Measurement::Ptr>(),
+								const int							searchThresh 		= 7,
+								const double						testRatio 			= 0.8,
+								const int							distThresh			= 256,
+								const int							maxMatches 			= 0,
+								const bool							fixThresh			= false);
+
+	std::vector<Measurement::Ptr>
+	getMeasuresByProjection(	const Frame::Ptr 					&frame,
+								const std::vector<Measurement::Ptr>	&otherFramesMs,		//these measures measure to different landmark
+								const std::vector<Measurement::Ptr> &existingMeasures 	= std::vector<Measurement::Ptr>(),
+								const int							searchThresh 		= 7,
+								const double						testRatio 			= 0.8,
+								const int							distThresh			= 256,
+								const bool							fixThresh			= false);
 
 	void triangulate(			const std::vector<cv::Point2f> 	&pts2D1,
 								const std::vector<cv::Point2f> 	&pts2D2,
@@ -112,12 +157,7 @@ public:
 								std::vector<cv::Point3f> 		&pts3D,
 								cv::Mat							&isGood);
 
-	void getKptsAndDecs( 		const int 						imgIdx,
-								std::vector<cv::KeyPoint> 		&kpts,
-								cv::Mat							&decs);
-
-
-	void pruneHighReprojectionErrorPoints();
+	void pruneHighErrorMeasurements();
 
 	void reprojectionErrorCheck(
 								const std::vector<cv::Point3f> 	&pts3D,
@@ -126,16 +166,11 @@ public:
 								float							&meanError,
 								cv::Mat							&isGood);
 
-	void projectImagePointsTo3DSurface(
-								const int						imgIdx,
-								const std::vector<cv::Point2f>	&xys,
-								std::vector<cv::Point3f>		&xyzs,
-								std::vector<cv::Point3f>		&norms,
-								std::vector<bool>				&status);
+	double computeMeanReprojectionError(	const std::vector<Measurement::Ptr> &in_ms = std::vector<Measurement::Ptr>());
 
-	void computeMeanReprojectionError();
-
-	void removeNearAndFar3DPoints();
+	double computeReprojectionError(const Frame::Ptr 				&frame,
+									const Eigen::Vector3d 			&pt3D,
+									const	int						featureIdx);
 
 	void cheiralityCheck(		const std::vector<cv::Point3f> 	&pts3D,
 								const cv::Matx34d 				&P,
@@ -143,70 +178,27 @@ public:
 								const float						&maxDist,
 								cv::Mat 						&isGood);
 
+	void applyGlobalTransformation(const cv::Mat 				&transformation);
+
 	void printDebug();
 
 	void bundleAdjustment();
 
-	void keepMinSpanCameras();
+	void bundleAdjustmentLocal();
 
-	void writePLY(				const std::string 				&root,
-								const std::string				&fname);
+	void bundleAdjustmentLocal(	std::vector<Measurement::Ptr>	&ms);
 
-	void readPLY(				const std::string 				&path,
-								std::vector<cv::Point3f> 		&xyzs);
+	// void bundleAdjustmentLocalFixPoints(std::vector<Measurement::Ptr> &ms);
 
-	void saveProject(			const std::string 				&fname,
-								const int						cloudIdx);
+	void saveProject(			const std::string 				&fname);
 
-	void loadProject(			const std::string				&fname,
-								const int						cloudIdx);
+	void loadProject(			const std::string				&fname);
 
-	void loadGPS(				const std::string				&fname);
-
-	void loadPolygon(			const std::string				&fname);
-
-	void getVisiblePolygons(	const int 						imgIdx,
-								std::vector<cv::Point3f> 		&verts,
-								std::vector<cv::Point3i> 		&faces);
-
-	void projectPolygonToImage(	const int 						imgIdx,
-								std::vector<cv::Point2f>		&verts,
-								std::vector<cv::Point3i> 		&faces);
-
-	double getCamFocal();
-	cv::Point2d getCamPrinciple();
-	int getCloudSize(){return ptCloud.pt3Ds.size();}
-
-	PtCloud ptCloud; //contains more than just 3d cloud, see declaration
-	PtCloud ptCloud2;	//additional point cloud to store surface projected points
-	PolygonModel poly;
-
-	double camFocal;
-	cv::Point2d camPrinciple;
-	cv::Mat camMat;
-	cv::Mat distortionMat;
-
-	//constants
-	const static int 	MIN_MATCHES 		= 10;
-	const static int 	MIN_3D4PNP 			= 6;
-	const static int 	MIN_5PTALGO			= 6;
-	const static int 	MIN_TRIANGULATE		= 1;
-	const static double MATCH_RATIO 		= 0.9;
-	const static int 	IMG_KEYPOINTS 		= 1000;
-	const static double HINLIER_THRESH 		= 0.4;
-	const static double HINLIER_THRESH2 	= 0.35;
-	const static float 	REPROJERROR_THRESH 	= 4.0;
-	const static float 	MIN_DIST_TO_CAM 	= 0.0;
-	const static float 	MAX_DIST_TO_CAM		= 30.0;
-	const static int 	PNP_MAX_ITERATION 	= 100;
-	const static float 	PNP_MAX_ERROR   	= 8.0;
-	const static double	PNP_CONFIDENCE   	= 0.99;
-	const static float	MEAN_ERROR_THRESH	= 8.0;
+	std::string						imgRoot;
+	std::vector<std::string>		imgNames;
+	Data							&data;
 
 
-	//ptam-related staff
-	void computeKeyFrame(		const int 							imgIdx,
-								KeyFrame 							&kf);
 
 };
 

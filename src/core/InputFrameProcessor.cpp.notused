@@ -1,0 +1,30 @@
+/*
+* To process video frames in SLAM
+*/
+
+#include "InputFrameProcessor.h"
+
+InputFrameProcessor::InputFrameProcessor()
+:lastQueueTime(-1)
+{
+    frameQueue = new ThreadsafeQueue<Frame::Ptr>(1); //small queue limit to prevent lag
+}
+InputFrameProcessor::~InputFrameProcessor(){
+    delete frameQueue;
+}
+
+void InputFrameProcessor::enQueue(Frame::Ptr &f){
+    if(!f){
+        return;
+    }
+    if(lastQueueTime<0 || f->time>lastQueueTime){
+        lastQueueTime = f->time;
+        frameQueue->push(f);
+        
+    }else{
+        //DebugLog("out of order imu data ignored");
+    }
+}
+void InputFrameProcessor::deQueue(Frame::Ptr &f){
+    frameQueue->pop(f);
+}

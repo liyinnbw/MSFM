@@ -1,0 +1,236 @@
+/*
+ * Widget to display current referred key frame in sfm video pipeline
+ */
+
+#include <assert.h>
+
+#include <QScrollArea>
+#include <QImage>
+#include <QVBoxLayout>
+#include <QPointF>
+
+#include <vector>
+
+#include <opencv2/core/core.hpp>
+
+#include <Eigen/Eigen>
+
+#include "core/Camera.h"
+#include "core/datastructs/Data.h"
+#include "core/SFMVideoPipeline.h"
+#include "FramePanel.h"
+#include "ImageWidget.h"
+
+using namespace std;
+using namespace cv;
+using namespace Eigen;
+
+FramePanel::FramePanel(QWidget *parent)
+:QWidget(parent)
+,imageWidget1(nullptr)
+,imageWidget2(nullptr)
+{
+	createWidgets();
+	connectWidgets();
+}
+
+FramePanel::~FramePanel() {
+	// TODO Auto-generated destructor stub
+}
+
+void FramePanel::createWidgets(){
+	imageWidget1 				= new ImageWidget;
+	imageWidget2 				= new ImageWidget;
+	QScrollArea *scrollArea1	= new QScrollArea;
+	QScrollArea *scrollArea2	= new QScrollArea;
+	scrollArea1->setWidget(imageWidget1);
+	scrollArea2->setWidget(imageWidget2);
+
+	QVBoxLayout *vLayout = new QVBoxLayout;
+	vLayout->addWidget(scrollArea1);
+	vLayout->addWidget(scrollArea2);
+
+	this->setLayout(vLayout);
+}
+void FramePanel::connectWidgets(){
+	connect(imageWidget2, SIGNAL(markSelected(const int)), this, SLOT(handleFrame2PointSelected(const int)));
+	connect(imageWidget1, SIGNAL(markSelected(const int)), this, SLOT(handleFrame1PointSelected(const int)));
+}
+
+void FramePanel::setVideoCore(SFMVideoPipeline *core){
+	vidCore = core;
+	connect(vidCore, SIGNAL(frameProcessed(const QImage &)), 					this, SLOT(handleVideoFrameAvailable(const QImage &)));
+
+}
+
+void FramePanel::handleVideoFrameAvailable(const QImage &){
+	//ignore the incomeing q image
+
+	if(vidCore == nullptr) return;
+
+	Frame::Ptr frame1 = vidCore->currentF;
+	Frame::Ptr frame2 = vidCore->referenceF;
+
+	if(!frame1 || !frame2) return;
+
+	QImage qimg1((uchar*) frame1->img.data, frame1->img.cols, frame1->img.rows, frame1->img.step, QImage::Format_Indexed8);
+	QImage qimg2;
+	if(frame2->img.empty()){
+		qimg2 = QImage(frame1->img.cols, frame1->img.rows, QImage::Format_Indexed8);
+		qimg2.fill(0);
+	}else{
+		qimg2 = QImage((uchar*) frame2->img.data, frame2->img.cols, frame2->img.rows, frame2->img.step, QImage::Format_Indexed8);
+	}
+
+	QList<QPointF> marks1, marks2;
+	for(vector<KeyPoint>::const_iterator it = frame1->kpts.begin(); it != frame1->kpts.end(); ++it){
+		marks1.push_back(QPointF(it->pt.x, it->pt.y));
+	}
+	Data &data = Data::GetInstance();
+	//cout<<"previousF:"<<vidCore->previousF->imgIdx<<","<<vidCore->previousF->measuresCnt<<","<<vidCore->previousMs.size()<<endl;
+	//assert(frame2->measuresCnt == vidCore->previousMs.size());
+	QList<bool> mask2;
+	for(int i=0; i<frame2->kpts.size(); i++){
+		marks2.push_back(QPointF(frame2->kpts[i].pt.x, frame2->kpts[i].pt.y));
+		if(frame2->measured[i]){
+			mask2.push_back(true);
+		}else{
+			mask2.push_back(false);
+		}
+	}
+
+	imageWidget1->setImage(qimg1);
+	imageWidget2->setImage(qimg2);
+	imageWidget1->setMarks(marks1);
+	imageWidget2->setMarks(marks2, mask2);
+	
+
+}
+
+void FramePanel::handleFrame1PointSelected(const int idx1){
+	imageWidget1->setSelected(idx1);
+	int idx2 = imageWidget2->getMarkToHightlight();
+
+	if(idx1>=0 && idx2>=0){
+		const Frame::Ptr &frame1 = vidCore->currentF;
+		const Frame::Ptr &frame2 = vidCore->referenceF;
+		assert(frame1 && frame2);
+
+		DetectorExtractor &de = DetectorExtractor::GetInstance();
+		int dist = de.descriptorDistance(frame1->decs.row(idx1), frame2->decs.row(idx2));
+		QString message = "f"+QString::number(frame1->imgIdx)+" kpt"+QString::number(idx1)+" - f"+QString::number(frame2->imgIdx)+" kpt"+QString::number(idx2)
+							+" = "+QString::number(dist);
+		emit SendMessage(message);
+	}
+}
+
+void FramePanel::handleFrame2PointSelected(const int idx){
+	imageWidget2->setSelected(idx);
+	imageWidget1->setSelected(-1);
+	QList<bool> mask;
+
+	if(idx<0){
+		imageWidget1->setMask(mask);
+		return;
+	}
+
+
+
+	Data &data = Data::GetInstance();
+	Camera &camera = Camera::GetInstance();
+	const Frame::Ptr &frame1 = vidCore->currentF;
+	const Frame::Ptr &frame2 = vidCore->referenceF;
+
+	int searchRadius = 7;
+	Measurement::Ptr m = nullptr;
+	if(data.getFrame(frame2->imgIdx)){
+		m = data.getMeasurement(frame2,idx);
+	}else{
+		assert(frame2->measured[idx]);
+		//cout<<"previousF:"<<vidCore->previousF->imgIdx<<","<<vidCore->previousF->measuresCnt<<","<<vidCore->previousMs.size()<<endl;
+		assert(frame2->measuresCnt == vidCore->previousMs.size());
+		const vector<Measurement::Ptr> &ms = vidCore->previousMs;
+		for(vector<Measurement::Ptr>::const_iterator it = ms.begin(); it!=ms.end(); ++it){
+			if((*it)->featureIdx == idx){
+				m = (*it);
+				break;
+			}
+		}
+	}
+	//const Measurement::Ptr &m = (data.getFrame(frame2->imgIdx)) ? data.getMeasurement(frame2,idx) : vidCore->previousMs[idx];
+
+	if(m){
+		//the point has a measure, project the 3d point to frame2
+		Camera::ProjectionStatus s;
+		Vector2d pos = camera.project(frame1, m->landmark->pt,s);
+		//skip if landmark is behind camera plane z=1
+		if(s == Camera::ProjectionStatus::Behind){
+			cout<<"behind"<<endl;
+			imageWidget1->setMask(mask);
+			return;
+		}
+		//skip if out of image given search radius
+		if(camera.outofbound(pos, searchRadius)){
+			cout<<"oob"<<endl;
+			imageWidget1->setMask(mask);
+			return;
+		}
+		//get feature search range around pos
+		int xMin				= pos[0]-searchRadius;
+		int xMax				= pos[0]+searchRadius;
+		int yMin				= pos[1]-searchRadius;
+		int yMax				= pos[1]+searchRadius;
+		if(xMin<0) xMin = 0;
+		if(yMin<0) yMin = 0;
+		if(xMax>=camera.w) xMax = camera.w-1;
+		if(yMax>=camera.h) yMax = camera.h-1;
+		int feIdxStart			= frame1->kptLUT[yMin];
+		if(feIdxStart >= frame1->decs.rows){
+			imageWidget1->setMask(mask);
+			return;
+		}
+		int feIdxEnd			= frame1->kptLUT[yMax];
+		if(feIdxEnd >= frame1->decs.rows) feIdxEnd = frame1->decs.rows-1;
+		if(feIdxEnd<feIdxStart){
+			imageWidget1->setMask(mask);
+			return;
+		}
+
+		int bestQuery=-1 ;
+		int bestDist1=256;
+		int bestDist2=256;
+		//const Mat &dec2 = frame2->decs.row(idx);
+		for(int i=0; i<frame1->kpts.size(); i++){
+			if(i>=feIdxStart && i<feIdxEnd){
+				Point2f &pt	= frame1->kpts[i].pt;
+				if(pt.x<xMin || pt.x>xMax){
+					mask.push_back(false);
+				}else{
+					mask.push_back(true);
+
+					//get frame feature
+					/*const Mat &dec		= frame->decs.row(j);
+					const int dist 		=  DetectorExtractor::descriptorDistance(dec,otherDec);
+					if(dist<bestDist1)
+					{
+						bestDist2=bestDist1;
+						bestDist1=dist;
+						bestQuery=j;
+					}
+					else if(dist<bestDist2)
+					{
+						bestDist2=dist;
+					}*/
+
+				}
+			}else{
+				mask.push_back(false);
+			}
+		}
+		imageWidget1->setMask(mask);
+		imageWidget1->setRect(QRect(xMin, yMin, xMax-xMin, yMax-yMin));
+
+	}else{
+		cout<<"point not measured"<<endl;
+	}
+}

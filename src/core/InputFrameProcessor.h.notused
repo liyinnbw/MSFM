@@ -1,0 +1,25 @@
+/*
+* To process video frames
+*/
+
+#ifndef InputFrameProcessor_hpp
+#define InputFrameProcessor_hpp
+
+#include "ThreadsafeQueue.h"
+#include "datastructs/Frame.h"
+
+
+class InputFrameProcessor{
+public:
+    InputFrameProcessor();
+    ~InputFrameProcessor();
+    
+    void enQueue(Frame::Ptr &f);
+    void deQueue(Frame::Ptr &f);
+    
+private:
+    ThreadsafeQueue<Frame::Ptr>     *frameQueue;
+    long                            lastQueueTime;
+};
+
+#endif /* InputFrameProcessor_hpp */

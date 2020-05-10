@@ -1,0 +1,44 @@
+/*
+ * Widget to play video
+ */
+
+#ifndef SRC_VIDEOPANEL_H_
+#define SRC_VIDEOPANEL_H_
+#include <QWidget>
+
+class QPushButton;
+class ImageWidget;
+class SFMVideoPipeline;
+class VideoPanel: public QWidget {
+	Q_OBJECT
+
+signals:
+	void frameRendered(bool);
+	void highlightFrames(const int, const int);
+	void plotData(const double, const double, const bool);
+	void videoLoaded();
+	void SendMessage(const QString &);
+
+public slots:
+	void handleVideoFrameAvailable(const QImage &);
+	void handleToggleAR(const bool);
+	void handlePauseResume(const bool);
+
+public:
+	VideoPanel(QWidget *parent = 0);
+	void play(const QString &fileName);
+
+	SFMVideoPipeline	*vidCore;
+
+private:
+	void createWidgets();
+	void connectWidgets();
+
+	ImageWidget			*videoWidget;
+	QPushButton 		*pauseButton;
+	QPushButton 		*nexFrameButton;
+	QPushButton 		*toggleARBtn;
+
+};
+
+#endif /* SRC_VIDEOPANEL_H_ */

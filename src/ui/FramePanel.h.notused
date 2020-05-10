@@ -1,0 +1,38 @@
+/*
+ * Widget to display current referred key frame in sfm video pipeline
+ */
+
+#ifndef SRC_FRAMEPANEL_H_
+#define SRC_FRAMEPANEL_H_
+
+#include <QWidget>
+
+class QImage;
+class ImageWidget;
+class SFMVideoPipeline;
+class QPointF;
+class FramePanel: public QWidget {
+	Q_OBJECT
+
+signals:
+	void SendMessage(const QString &);
+
+public slots:
+	void handleVideoFrameAvailable(const QImage &);
+	void handleFrame1PointSelected(const int);
+	void handleFrame2PointSelected(const int);
+public:
+	FramePanel(QWidget *parent = 0);
+	virtual ~FramePanel();
+	void setVideoCore(SFMVideoPipeline *core);
+
+private:
+	void createWidgets();
+	void connectWidgets();
+
+	ImageWidget 		*imageWidget1;
+	ImageWidget 		*imageWidget2;
+	SFMVideoPipeline	*vidCore;
+};
+
+#endif /* SRC_FRAMEPANEL_H_ */

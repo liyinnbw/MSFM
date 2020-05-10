@@ -1,0 +1,75 @@
+cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
+PROJECT(ManualSFM)
+SET (CMAKE_CXX_STANDARD 14)
+
+#add_subdirectory(opengv)
+
+FIND_PACKAGE(OpenCV REQUIRED)
+FIND_PACKAGE(Qt5 COMPONENTS Widgets REQUIRED)
+FIND_PACKAGE(VTK REQUIRED)
+FIND_PACKAGE(Eigen3 REQUIRED)
+FIND_PACKAGE(Ceres REQUIRED)
+#FIND_PACKAGE (opengv PATHS "${PROJECT_SOURCE_DIR}/thirdparty/cmake" NO_DEFAULT_PATH REQUIRED)
+
+INCLUDE(${VTK_USE_FILE})
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+if(CMAKE_VERSION VERSION_LESS "3.7.0")
+    set(CMAKE_INCLUDE_CURRENT_DIR ON)
+endif()
+
+SET(SOURCES 
+src/main.cpp 
+src/MainWindow.cpp
+src/CloudWidget.cpp
+src/ImageWidget.cpp
+src/ImageTileWidget.cpp
+src/MatchWidget.cpp
+src/MatchPanel.cpp
+src/MatchPanelModel.cpp
+src/VisibleImagesPanel.cpp
+src/EpipolarPanel.cpp
+#src/GraphWidget.cpp
+#src/VideoPanel.cpp
+#src/FramePanel.cpp
+src/core/ProjectIO.cpp
+src/CoreInterfaceWidget.cpp
+src/core/InputFrameProcessor.cpp
+src/core/Utils.cpp
+src/core/PathReader.cpp
+src/core/BAHandler.cpp
+src/core/SFMPipeline.cpp
+#src/core/SFMVideoPipeline.cpp
+src/core/Camera.cpp
+src/core/DetectorExtractor.cpp
+#src/core/ceres/EigenQuaternionParameterization.cpp
+src/core/ProjectIO.h
+src/core/SFMPipeline.h
+#src/core/SFMVideoPipeline.h
+src/core/InputFrameProcessor.h
+src/core/ThreadsafeQueue.h
+src/core/Utils.h
+src/core/PathReader.h
+src/core/BAHandler.h
+src/core/Camera.h
+src/core/DetectorExtractor.h
+src/core/datastructs/Frame.h
+src/core/datastructs/LandMark.h
+src/core/datastructs/Data.h
+src/core/datastructs/Measurement.h
+#src/core/ceres/EigenQuaternionParameterization.h
+)
+
+
+include_directories(
+  ${EIGEN3_INCLUDE_DIRS}
+  #${PROJECT_SOURCE_DIR}/opengv/include
+)  
+
+
+#ADD_EXECUTABLE(ManualSFM ${SOURCES} ${AGAST_SOURCES} ${BRISK_SOURCES} ${DBOW3_SOURCES} )
+#TARGET_LINK_LIBRARIES(ManualSFM Qt5::Widgets ${VTK_LIBRARIES} ${OpenCV_LIBS} QVTK opengv ${CERES_LIBRARIES})
+ADD_EXECUTABLE(ManualSFM ${SOURCES})
+TARGET_LINK_LIBRARIES(ManualSFM Qt5::Widgets ${VTK_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} )

@@ -1,9 +1,6 @@
 /*
- * Utils.h
- *
- *  Created on: Mar 11, 2016
- *      Author: yoyo
- */
+* stateless static utility functions
+*/
 
 #ifndef UTILS_H_
 #define UTILS_H_
@@ -16,7 +13,6 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
-#include "PtCloud.h"
 
 class Utils {
 public:
@@ -28,6 +24,12 @@ public:
 
 	static void Matches2Points(		const std::vector<cv::KeyPoint> &kpts1,
 									const std::vector<cv::KeyPoint> &kpts2,
+									const std::vector<cv::DMatch> &matches,
+									std::vector<cv::Point2f> &pts1,
+									std::vector<cv::Point2f> &pts2);
+
+	static void Matches2Points(		const std::vector<cv::Point2f> &kpts1,
+									const std::vector<cv::Point2f> &kpts2,
 									const std::vector<cv::DMatch> &matches,
 									std::vector<cv::Point2f> &pts1,
 									std::vector<cv::Point2f> &pts2);
@@ -45,7 +47,8 @@ public:
 
 	static bool endsWith(const std::string &s, const std::string &suffix);
 
-
+	static void readPaths(	const std::string 				&root,
+							std::vector<std::string> 		&paths);
 };
 
-#endif /* UTILS_H_ */
+#endif

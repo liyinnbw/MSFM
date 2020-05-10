@@ -1,0 +1,112 @@
+/*
+* Like SFMPipeline but for processing video frames
+*/
+
+#ifndef SRC_CORE_SFMVIDEOPIPELINE_H_
+#define SRC_CORE_SFMVIDEOPIPELINE_H_
+
+#include <string>
+#include <thread>
+#include <mutex>
+#include <QObject>
+#include <Eigen/Eigen>
+
+#include "datastructs/Data.h"
+
+class QImage;
+class InputFrameProcessor;
+class SFMPipeline;
+class SFMVideoPipeline: public QObject {
+
+    Q_OBJECT
+signals:
+	void frameProcessed(const QImage &);
+	void highlightFrames(const int, const int);
+	void plotData(const double, const double, const bool);
+	void SendMessage(const QString &);
+
+public slots:
+	void pause();
+	void resume();
+	void nextFrame();
+	void showAR(const bool);
+
+public:
+
+	SFMVideoPipeline();
+	virtual ~SFMVideoPipeline();
+	void setVidPath(const std::string &_vidPath);
+	void startThreads();
+	void stopThreads();
+	void reset();
+
+
+	Frame::Ptr currentF;
+	Frame::Ptr firstF;
+	Frame::Ptr previousF;
+	Frame::Ptr referenceF;
+	std::vector<Measurement::Ptr> currentMs;
+	std::vector<Measurement::Ptr> previousMs;
+
+
+private:
+	void VideoLoop();
+	void TrackingLoop();
+	void MappingLoop();
+	void init(Frame::Ptr frame);
+	void track(Frame::Ptr frame);
+	void track_relocalize();
+	bool track_reference(bool changeRef);
+	bool track_motion();
+	bool track_map();
+	bool track_optflow();
+	void drawDebug();
+	void updateMotionModel();
+
+	enum{
+		NOT_INITIALIZED = 0,
+		INITIALIZING    = 1,
+		INITIALIZED     = 2
+	}state;
+
+	enum{
+		GOOD			= 0,
+		BAD				= 1,
+		RECOVERING		= 2
+	}trackingQuality;
+
+	std::string							vidPath;
+	bool 								isRunning_threads;
+	std::thread                         *videoThread;
+	std::thread							*trackingThread;
+	std::thread							*mappingThread;
+	InputFrameProcessor					*frameProcessor;
+	SFMPipeline							*sfm;
+
+	//for initialization
+
+	std::vector<cv::Point2f> startCorners;
+	std::vector<cv::Point2f> endCorners;
+	std::vector<cv::DMatch> matches;
+	std::vector<cv::DMatch> matches_proj;
+	
+
+	//for motion model
+	Eigen::Vector3d 					t_velocity;	//translational velocity
+	Eigen::Vector3d						r_axis;		//angular velocity rotation axis
+	double								r_velocity;	//angular velocity in radian
+	double 								loopTime;
+	cv::Mat								renderImg;	//must retain it as qImage does not deep copy its data
+													//so if renderImage is out of scope and destroyed, qImage will be junk
+
+	//for data plot
+	int 								frameNum;
+	bool 								shouldHighlight;
+
+	//for video control
+	bool								vidPause;
+	bool								vidNextFrame;
+	bool 								drawAR;
+};
+
+#endif 

@@ -1,0 +1,92 @@
+/*
+ * Widget to play video
+ */
+
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QScrollArea>
+
+#include "VideoPanel.h"
+#include "ImageWidget.h"
+#include "core/SFMVideoPipeline.h"
+
+
+VideoPanel::VideoPanel(QWidget *parent)
+:QWidget(parent)
+,vidCore(nullptr)
+,videoWidget(nullptr)
+,pauseButton(nullptr)
+,nexFrameButton(nullptr)
+,toggleARBtn(nullptr)
+{
+	createWidgets();
+	connectWidgets();
+}
+
+void VideoPanel::createWidgets(){
+	videoWidget 	= new ImageWidget();
+	vidCore 		= new SFMVideoPipeline();
+	pauseButton 	= new QPushButton(tr("Pause"));
+	pauseButton->setCheckable(true);
+	nexFrameButton 	= new QPushButton(tr("Next"));
+	toggleARBtn 	= new QPushButton(tr("AR Off"));
+	toggleARBtn->setCheckable(true);
+
+	QScrollArea *scrollArea= new QScrollArea;
+	scrollArea->setWidget(videoWidget);
+
+	QHBoxLayout *hLayout = new QHBoxLayout;
+	hLayout->addWidget(pauseButton);
+	hLayout->addWidget(nexFrameButton);
+	hLayout->addWidget(toggleARBtn);
+
+	QVBoxLayout *vLayout = new QVBoxLayout;
+	vLayout->addWidget(scrollArea);
+	vLayout->addLayout(hLayout);
+
+	this->setLayout(vLayout);
+}
+
+void VideoPanel::connectWidgets(){
+	connect(pauseButton, 	SIGNAL(toggled(bool)), this, SLOT(handlePauseResume(bool)));
+	connect(toggleARBtn, 	SIGNAL(toggled(bool)), this, SLOT(handleToggleAR(bool)));
+	connect(nexFrameButton, SIGNAL(clicked()), vidCore, SLOT(nextFrame()));
+	connect(vidCore, SIGNAL(frameProcessed(const QImage &)), 					this, SLOT(handleVideoFrameAvailable(const QImage &)));
+	connect(vidCore, SIGNAL(highlightFrames(const int, const int)), 			this, SIGNAL(highlightFrames(const int, const int)));
+	connect(vidCore, SIGNAL(plotData(const double, const double, const bool)), 	this, SIGNAL(plotData(const double, const double, const bool)));
+	connect(vidCore, SIGNAL(SendMessage(const QString &)),						this, SIGNAL(SendMessage(const QString &)));
+}
+
+void VideoPanel::play(const QString &fileName){
+	vidCore->stopThreads();
+	vidCore->setVidPath(fileName.toStdString());
+	vidCore->startThreads();
+
+	emit videoLoaded();
+}
+
+void VideoPanel::handlePauseResume(const bool shouldPause){
+	if(shouldPause){
+		vidCore->pause();
+		pauseButton->setText(tr("Resume"));
+	}else{
+		vidCore->resume();
+		pauseButton->setText(tr("Pause"));
+	}
+}
+
+void VideoPanel::handleToggleAR(const bool shouldShowAR){
+	if(shouldShowAR){
+		vidCore->showAR(shouldShowAR);
+		toggleARBtn->setText(tr("AR On"));
+	}else{
+		vidCore->showAR(shouldShowAR);
+		toggleARBtn->setText(tr("AR Off"));
+	}
+}
+
+void VideoPanel::handleVideoFrameAvailable(const QImage &img){
+	videoWidget->setImage(img);
+	emit frameRendered(false);	//true for reset cloud view
+}

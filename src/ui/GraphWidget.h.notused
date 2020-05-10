@@ -1,0 +1,44 @@
+
+
+#ifndef SRC_GRAPHWIDGET_H_
+#define SRC_GRAPHWIDGET_H_
+
+#include <QWidget>
+
+class GraphWidget: public QWidget {
+	Q_OBJECT
+signals:
+	void graphUpdated();
+
+public slots:
+	void setData(const QList<double> &xData, const QList<double> &yData);
+	void addData(const double x, const double y, const bool highlight);
+	void clearGraph();
+public:
+	GraphWidget(QWidget *parent = 0);
+	void reset();
+
+
+protected:
+	virtual void paintEvent(QPaintEvent *event);
+	virtual void wheelEvent(QWheelEvent *event);
+	virtual void drawAxis();
+	virtual void drawMarks();
+	virtual void drawLines();
+	virtual void setZoom(float newZoom);
+	virtual float getUnitScaleX();
+	virtual float getUnitScaleY();
+
+	QList<double> xs;
+	QList<double> ys;
+	QList<bool> highlights;
+	QRectF dataBounds;
+	float zoom;
+	float margin;
+	float padding;
+	QSize defaultSize;
+
+
+};
+
+#endif /* SRC_GRAPHWIDGET_H_ */

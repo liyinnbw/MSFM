@@ -1,0 +1,240 @@
+
+#include <assert.h>
+#include <iostream>
+#include <QtGui>
+#include "GraphWidget.h"
+
+GraphWidget::GraphWidget(QWidget *parent)
+:QWidget(parent)
+,dataBounds(0,0,1,1)
+,zoom(1.0f)
+,margin(20.0f)
+,padding(50.0f)
+,defaultSize(400,400)
+{
+	setFocusPolicy(Qt::StrongFocus);
+	resize(defaultSize);	//initial widget size
+}
+
+void GraphWidget::reset(){
+	defaultSize = parentWidget()->size();
+	resize(defaultSize);
+	std::cout<<defaultSize.width()<<"x"<<defaultSize.height()<<std::endl;
+	setZoom(1);
+}
+
+void GraphWidget::clearGraph(){
+	xs.clear();
+	ys.clear();
+	highlights.clear();
+	dataBounds = QRectF(0,0,1,1);
+	update();
+}
+
+void GraphWidget::setData(const QList<double> &xData, const QList<double> &yData){
+	assert(xData.size() == yData.size());
+
+	reset();
+	xs = xData;
+	ys = yData;
+	highlights.clear();
+
+
+	if(xs.empty()){
+		dataBounds = QRectF(0,0,1,1);
+	}else{
+		double minX, maxX, minY, maxY;
+		for(int i=0; i<xs.size(); i++){
+			if(i == 0){
+				minX = xs[i];
+				maxX = minX;
+				minY = ys[i];
+				maxY = minY;
+			}else{
+				if(xs[i]<minX) minX = xs[i];
+				if(xs[i]>maxX) maxX = xs[i];
+				if(ys[i]<minY) minY = ys[i];
+				if(ys[i]>minY) maxY = ys[i];
+			}
+		}
+		dataBounds = QRectF(minX,minY,maxX-minX, maxY-minY);
+	}
+
+
+
+	update();
+}
+
+void GraphWidget::addData(const double x, const double y, const bool highlight){
+	reset();
+	xs.push_back(x);
+	ys.push_back(y);
+	highlights.push_back(highlight);
+
+	if(xs.size() == 1){
+		dataBounds = QRectF(x,y,0,0);
+	}else{
+
+		double minX = dataBounds.left();
+		double maxX = dataBounds.right();
+		double minY = dataBounds.top();
+		double maxY = dataBounds.bottom();
+
+		if(x<minX){
+			minX = x;
+		}
+		if(x>maxX){
+			maxX = x;
+		}
+		if(y<minY){
+			minY = y;
+		}
+		if(y>maxY){
+			maxY = y;
+		}
+
+
+		dataBounds = QRectF(minX,minY,maxX-minX, maxY-minY);
+	}
+
+	update();
+}
+
+void GraphWidget::paintEvent(QPaintEvent *event){
+	QPainter painter(this);
+	drawAxis();
+	drawMarks();
+	drawLines();
+}
+
+void GraphWidget:: wheelEvent(QWheelEvent *event){
+
+	//obtain the mouse wheel's step size
+	float step = event->delta()/1200.0;
+	setZoom(zoom+step);
+	resize(defaultSize.width()*zoom,defaultSize.height()*zoom);
+	update();
+}
+
+void GraphWidget::drawAxis(){
+
+
+	QPainter painter(this);
+	QColor black(0, 0, 0);
+
+
+	const QSize mSize = this->size();
+	float unitScaleX = getUnitScaleX();
+	float unitScaleY = getUnitScaleY();
+	QPointF origin(margin,mSize.height()-margin);
+	QPointF xAxisEnd(mSize.width()-margin, mSize.height()-margin);
+	QPointF yAxisEnd(margin,margin);
+	QPointF xLabelEnd(margin+unitScaleX*dataBounds.width(),  mSize.height()-margin);
+	QPointF yLabelEnd(margin, mSize.height()-margin-unitScaleY*dataBounds.height());
+	QPointF topRightEnd(margin+unitScaleX*dataBounds.width(), mSize.height()-margin-unitScaleY*dataBounds.height());
+
+	QPen pen1(black, 2, Qt::SolidLine);
+	painter.setPen(pen1);
+	//x-axis
+	painter.drawLine(origin,xAxisEnd);
+	//y-axis
+	painter.drawLine(origin,yAxisEnd);
+
+	QPen pen2(black, 2, Qt::DashLine);
+	painter.setPen(pen2);
+	//right bound
+	painter.drawLine(xLabelEnd,topRightEnd);
+	//top bound
+	painter.drawLine(yLabelEnd,topRightEnd);
+
+	//draw labels
+	float graphW = mSize.width()-margin*2-padding;
+	float graphH = mSize.height()-margin*2-padding;
+
+	//x-origin label
+	painter.drawText(origin+QPointF(0,12), QString::number(dataBounds.left()));
+	//y-origin label
+	painter.drawText(origin-QPointF(12,0), QString::number(dataBounds.top()));
+	//x-end label
+	painter.drawText(xLabelEnd+QPointF(0,12), QString::number(dataBounds.right()));
+	//y-end label
+	painter.drawText(yLabelEnd-QPointF(12,0), QString::number(dataBounds.bottom()));
+}
+
+void GraphWidget::drawMarks(){
+	QPainter painter(this);
+	painter.setRenderHint(QPainter::Antialiasing);
+	QColor red(255, 0, 0);
+	QColor blue(0, 0, 255);
+
+	const QSize mSize = this->size();
+	float unitScaleX = getUnitScaleX();
+	float unitScaleY = getUnitScaleY();
+	for(int i=0; i<xs.size(); i++){
+		if(highlights.empty()){
+			QPen pen(red, 2, Qt::SolidLine);
+			painter.setPen(pen);
+		}
+		else{
+			if(highlights[i]){
+				QPen pen(blue, 2, Qt::SolidLine);
+				painter.setPen(pen);
+			}else{
+				QPen pen(red, 2, Qt::SolidLine);
+				painter.setPen(pen);
+			}
+		}
+		painter.drawEllipse(QPointF(margin+(xs[i]-dataBounds.left())*unitScaleX,mSize.height()-margin-(ys[i]-dataBounds.top())*unitScaleY), 2,2);
+
+	}
+
+}
+
+void GraphWidget::drawLines(){
+	if(xs.empty()) return;
+
+	QPainter painter(this);
+	painter.setRenderHint(QPainter::Antialiasing);
+	QColor red(255, 0, 0);
+	QPen pen(red, 2, Qt::SolidLine);
+	painter.setPen(pen);
+
+	const QSize mSize = this->size();
+	float unitScaleX = getUnitScaleX();
+	float unitScaleY = getUnitScaleY();
+	QPointF prevPt = QPointF(margin+(xs[0]-dataBounds.left())*unitScaleX,mSize.height()-margin-(ys[0]-dataBounds.top())*unitScaleY);
+	for(int i=1; i<xs.size(); i++){
+		QPointF currPt = QPointF(margin+(xs[i]-dataBounds.left())*unitScaleX,mSize.height()-margin-(ys[i]-dataBounds.top())*unitScaleY);
+
+		painter.drawLine(prevPt,currPt);
+		prevPt = currPt;
+
+	}
+}
+
+void GraphWidget::setZoom(float newZoom){
+	if(newZoom<1){
+		zoom = 1;
+	}else{
+		zoom = newZoom;
+	}
+}
+
+float GraphWidget::getUnitScaleX(){
+	const QSize mSize = this->size();
+
+	float graphW = mSize.width()-margin*2-padding;
+	float scaleW = graphW/dataBounds.width();
+
+	return scaleW;
+}
+
+float GraphWidget::getUnitScaleY(){
+	const QSize mSize = this->size();
+
+	float graphH = mSize.height()-margin*2-padding;
+	float scaleH = graphH/dataBounds.height();
+
+	return scaleH;
+}
+

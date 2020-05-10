@@ -1,0 +1,1038 @@
+/*
+* Like SFMPipeline but for processing video frames
+*/
+
+
+#include <QImage>
+
+#include "SFMVideoPipeline.h"
+#include "SFMPipeline.h"
+#include "InputFrameProcessor.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/videoio.hpp>
+#include <iostream>
+#include <time.h>
+#include <chrono>
+#include <ctime>
+
+#include <opencv2/opencv.hpp>
+#include <Eigen/Eigen>
+// #include <opengv/types.hpp>
+// #include <opengv/relative_pose/methods.hpp>
+// #include <opengv/absolute_pose/methods.hpp>
+// #include <opengv/relative_pose/CentralRelativeAdapter.hpp>
+// #include <opengv/absolute_pose/CentralAbsoluteAdapter.hpp>
+// #include <opengv/sac/Ransac.hpp>
+// #include <opengv/triangulation/methods.hpp>
+// #include <opengv/sac_problems/relative_pose/CentralRelativePoseSacProblem.hpp>
+// #include <opengv/sac_problems/absolute_pose/AbsolutePoseSacProblem.hpp>
+
+#include "Camera.h"
+
+using namespace std;
+using namespace cv;
+using namespace Eigen;
+// using namespace opengv;
+
+const static int	MIN_INITIAL_TRACKS 	= 100;
+const static int	MIN_TRACKS			= 30;
+const static double	MIN_VOCABMATCH_SCORE= 0.1;
+const static float 	DUMMY_KPT_SIZE		= 5;	//any size is fine, will be recomputed when detect
+const static float 	DUMMY_KPT_ANGLE		= -1;	//just default, means no angle, will be recomputed when detect
+const static float 	DUMMY_KPT_RESPONSE	= 0;	//must be bigger than 1e6 to pass detect threshold
+const static double FRAME_RATE			= 30;
+const static double FRAME_INTERVAL_SEC	= 1.0/FRAME_RATE;
+const static long 	MICRO				= 1000000L;
+const static long	NANO				= 1000000000L;
+const static double INVERSE_MICRO		= 1.0/MICRO;
+const static double INVERSE_NANO		= 1.0/NANO;
+const static double ALMOST_ZERO			= 0.0000000001;
+
+
+SFMVideoPipeline::SFMVideoPipeline()
+:state(NOT_INITIALIZED)
+,trackingQuality(BAD)
+,vidPath("")
+,isRunning_threads(false)
+,videoThread(nullptr)
+,trackingThread(nullptr)
+,mappingThread(nullptr)
+,frameProcessor(nullptr)
+,sfm(nullptr)
+,currentF(nullptr)
+,firstF(nullptr)
+,previousF(nullptr)
+,referenceF(nullptr)
+,t_velocity(Vector3d::Zero())
+,r_axis(Vector3d::Zero())
+,r_velocity(0)
+,loopTime(0)
+,frameNum(0)
+,shouldHighlight(false)
+,vidPause(false)
+,vidNextFrame(false)
+,drawAR(false)
+{
+
+}
+
+SFMVideoPipeline::~SFMVideoPipeline() {
+	stopThreads();
+}
+
+void SFMVideoPipeline::setVidPath(const std::string &_vidPath)
+{
+	vidPath = _vidPath;
+	reset();
+	//Data::GetInstance().reset();
+}
+
+void SFMVideoPipeline::reset(){
+    state                       = NOT_INITIALIZED;
+	trackingQuality 			= BAD;	
+    currentF.reset();
+	currentMs.clear();
+	previousF.reset();
+	previousMs.clear();
+	referenceF.reset();
+
+    firstF.reset();
+    startCorners.clear();
+    endCorners.clear();
+
+    matches.clear();
+	matches_proj.clear();
+	
+	updateMotionModel();
+	loopTime = 0;
+	//renderImg = Mat();
+	frameNum = 0;
+	shouldHighlight = false;
+
+	Data::GetInstance().nonKeyFrames.clear();
+
+}
+
+void SFMVideoPipeline::startThreads()
+{
+	if(isRunning_threads) return;
+	//Data::GetInstance().reset();
+
+	frameNum = 0;
+	isRunning_threads = true;
+
+	frameProcessor = new InputFrameProcessor();
+	vector<string> dummyImgPaths;
+	sfm			   = new SFMPipeline("",dummyImgPaths);
+	trackingThread = new std::thread(&SFMVideoPipeline::TrackingLoop,this);
+	//mappingThread = new std::thread(&SFMVideoPipeline::MappingLoop,this);
+	videoThread = new std::thread(&SFMVideoPipeline::VideoLoop,this);
+
+}
+void SFMVideoPipeline::stopThreads()
+{
+	if(isRunning_threads){
+		isRunning_threads = false;
+	}
+	if(videoThread){
+		videoThread->join();
+		delete videoThread;
+		videoThread = nullptr;
+	}
+	if(mappingThread){
+		mappingThread->join();
+		delete mappingThread;
+		mappingThread = nullptr;
+	}
+	if(trackingThread){
+		trackingThread->join();
+		delete trackingThread;
+		trackingThread = nullptr;
+	}
+
+	if(frameProcessor){
+		delete frameProcessor;
+		frameProcessor = nullptr;
+	}
+	if(sfm){
+		delete sfm;
+		sfm = nullptr;
+	}
+}
+
+void SFMVideoPipeline::pause(){
+	vidPause = true;
+}
+
+void SFMVideoPipeline::nextFrame(){
+	vidNextFrame = true;
+}
+
+void SFMVideoPipeline::resume(){
+	vidPause = false;
+}
+
+void SFMVideoPipeline::showAR(const bool _drawAR){
+	drawAR = _drawAR;
+}
+
+void SFMVideoPipeline::VideoLoop()
+{
+	cout<<"video loop started"<<endl;
+	cv::VideoCapture vid(vidPath);
+	if (vid.isOpened()){
+		cv::Mat img;
+
+		while(isRunning_threads){
+
+			if(vidPause){
+				if(!vidNextFrame){
+					continue;
+				}else{
+					vidNextFrame = false;
+				}
+			}
+
+			if(!(vid.read(img))) break;
+
+
+			cv::cvtColor(img,img,COLOR_BGR2GRAY);
+			cv::flip(img,img,-1);
+			if(frameProcessor){
+				struct timespec ts;
+				timespec_get(&ts, TIME_UTC);
+				long nanotime = (long)ts.tv_sec * NANO + ts.tv_nsec;
+
+				Frame::Ptr frame(new Frame(img, nanotime));
+				frameProcessor->enQueue(frame);
+			}
+			//std::this_thread::sleep_for(std::chrono::seconds(1));	//1FPS
+			std::this_thread::sleep_for(std::chrono::microseconds((int)(FRAME_INTERVAL_SEC*MICRO)));
+		}
+	}
+	vid.release();
+	cout<<"video loop ended"<<endl;
+}
+
+void SFMVideoPipeline::TrackingLoop(){
+	cout<<"tracking loop started"<<endl;
+
+	Data &data = Data::GetInstance();
+	while(isRunning_threads){
+
+		if(frameProcessor){
+			Frame::Ptr frame;
+			frameProcessor->deQueue(frame);
+			if(frame){
+
+				clock_t	time 	= clock();
+
+
+				if(data.getFrames().empty()){
+					//frame->init();
+					//currentF = frame;
+					init(frame);
+				}else{
+					track(frame);
+				}
+
+
+				loopTime		= double(clock()-time) / CLOCKS_PER_SEC;
+				//draw onto renderImg
+				drawDebug();
+				//XXX:img in bgr, does not copy the data, so data must remain valid out of scope through the life of qimg
+				QImage qimg((uchar*) renderImg.data, renderImg.cols, renderImg.rows, renderImg.step, QImage::Format_RGB888);
+				//XXX:img in gray, does not copy the data, so data must remain valid out of scope through the life of qimg
+				//QImage qimg((uchar*) img.data, img.cols, img.rows, img.step, QImage::Format_Indexed8);
+				emit frameProcessed(qimg);
+
+			}
+		}
+
+	}
+	cout<<"tracking loop ended"<<endl;
+}
+
+void SFMVideoPipeline::MappingLoop(){
+	cout<<"mapping loop started"<<endl;
+	while(isRunning_threads){
+	}
+	cout<<"mapping loop ended"<<endl;
+}
+
+void SFMVideoPipeline::init(Frame::Ptr frame){
+	currentF = frame;
+	if(state == NOT_INITIALIZED){
+
+		startCorners.clear();
+		endCorners.clear();
+		matches.clear();
+
+		int maxCorners      = 500;
+		double qualityLvl   = 0.01; //used to create threshold to prune away corners with quality < 0.01*best quality
+		double minDist      = 1;   //min allowed pixel distance between corners
+		cv::InputArray mask = cv::noArray();
+		int blockSize       = 3;
+		bool useHarris      = true;
+		double k            = 0.04; //used by harris corner detection
+		cv::goodFeaturesToTrack(currentF->img, startCorners, maxCorners, qualityLvl, minDist, mask, blockSize, useHarris, k);
+
+		if(startCorners.size()<MIN_INITIAL_TRACKS){
+			reset();
+			return;
+		}
+		cout<<"start corners = "<<startCorners.size()<<endl;
+
+		endCorners          = startCorners;  // copy
+		for(unsigned int i=0; i<endCorners.size(); i++){
+			currentF->kpts.push_back(KeyPoint(endCorners[i], DUMMY_KPT_SIZE,DUMMY_KPT_ANGLE, DUMMY_KPT_RESPONSE));
+			matches.push_back(cv::DMatch(i, i, 0));
+		}
+		//DetectorExtractor::GetInstance().detectBRISK_hasKpts(currentF->img, currentF->kpts);
+		assert(currentF->kpts.size() == endCorners.size());
+		currentF->resetMeasures();
+
+		firstF             = currentF;
+		previousF          = currentF;
+		state               = INITIALIZING;
+
+		return;
+	}
+
+	if(state == INITIALIZING)
+	{
+		vector<cv::Point2f> newCorners;
+		vector<cv::DMatch> newMatches;
+		vector<unsigned char> status;
+		vector<float> err;
+
+		cv::Size searchWindow       = cv::Size(21,21);
+		int maxLevel                = 3;
+		cv::TermCriteria criteria   = cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
+		int flags                   = 0; //OPTFLOW_USE_INITIAL_FLOW//OPTFLOW_LK_GET_MIN_EIGENVALS
+		double minEigThreshold      = 1e-4;
+		cv::calcOpticalFlowPyrLK(previousF->img, currentF->img, endCorners, newCorners, status, err, searchWindow, maxLevel, criteria, flags, minEigThreshold);
+
+		endCorners.clear();
+		for(unsigned int i=0; i<newCorners.size(); i++){
+			//by right, checking status is enough, but there was a bug in opencv so need to check more to be sure
+			if(status[i] && newCorners[i].x>=0 && newCorners[i].x<currentF->img.cols && newCorners[i].y>=0 && newCorners[i].y<currentF->img.rows){
+				newMatches.push_back(cv::DMatch( matches[i].queryIdx, (int)(endCorners.size()), err[i]));
+				endCorners.push_back(newCorners[i]);
+				currentF->kpts.push_back(KeyPoint(endCorners[i],DUMMY_KPT_SIZE,DUMMY_KPT_ANGLE, DUMMY_KPT_RESPONSE));
+			}
+		}
+		//DetectorExtractor::GetInstance().detectBRISK_hasKpts(currentF->img, currentF->kpts);
+		assert(currentF->kpts.size() == endCorners.size());
+		currentF->resetMeasures();
+
+		if(newMatches.size()<MIN_INITIAL_TRACKS){
+			reset();
+			return;
+		}
+
+		previousF = currentF;
+		matches.swap(newMatches);   //no copy
+
+		if(sfm->checkMatchesBasePair(firstF->kpts, currentF->kpts, matches)){
+			if(sfm->reconstructBasePair(firstF, currentF, matches)){
+				sfm->bundleAdjustment();
+
+
+				//the tracked points does not have descriptors,
+				//now we switch to use standard features
+				Data &data = Data::GetInstance();
+				data.deleteMeasurements(firstF);
+				data.deleteMeasurements(currentF);
+				data.deleteTrashes();
+				firstF->init();
+				currentF->init();
+				sfm->addMoreLandMarksAndMeasures(firstF, currentF);
+				sfm->pruneHighErrorMeasurements();
+				sfm->bundleAdjustment();
+
+				//set motion, assume initially zero speed
+				t_velocity = Vector3d::Zero();
+				r_axis	   = Vector3d::Zero();
+				r_velocity = 0;
+
+				previousF = currentF;
+
+				//clear pointer no longer used
+				firstF.reset();
+
+				//clear memory no longer used
+				startCorners.clear();
+				endCorners.clear();
+				matches.clear();
+
+				previousMs = data.getMeasurements(previousF);
+				state                   = INITIALIZED;
+			}
+		}
+	}
+}
+
+void SFMVideoPipeline::track(Frame::Ptr frame)
+{
+	cout<<endl<<endl<<endl;
+	Data &data = Data::GetInstance();
+
+	if(trackingQuality != BAD){
+		previousF 	= currentF;
+		previousMs 	= currentMs;
+	}
+	
+	frame->init();
+	currentF = frame;
+
+	{
+		bool trackGood = false;
+		currentMs.clear();
+		matches.clear();
+		matches_proj.clear();
+
+		if(trackingQuality == BAD){
+			cout<<"tracking bad"<<endl;
+			trackGood = track_reference(true);
+			if(trackGood){
+				trackingQuality = RECOVERING;
+			}else{
+				trackingQuality = BAD;
+			}
+		}else if(trackingQuality == RECOVERING){
+			cout<<"tracking recovering"<<endl;
+			trackGood = track_reference(false);
+			if(trackGood){
+				trackingQuality = GOOD;
+			}else{
+				trackingQuality = BAD;
+			}
+		}else{
+			cout<<"tracking good"<<endl;
+			trackGood = track_motion();
+			cout<<"motion track: "<<currentMs.size()<<"/"<<previousMs.size()<<endl;
+			if(trackGood){
+				trackingQuality = GOOD;
+				shouldHighlight = true;
+				assert(previousF->measuresCnt == previousMs.size());
+			}else{
+				trackingQuality = BAD;
+				shouldHighlight = false;
+				/*
+				//retry tracking by reference
+				currentMs.clear();
+				matches.clear();
+				matches_proj.clear();
+				trackGood = track_reference(true);
+				if(trackGood){
+					trackingQuality = GOOD;
+				}else{
+					trackingQuality = BAD;
+				}
+				shouldHighlight = false;
+				*/
+			}
+		}
+	}
+
+
+	if(trackingQuality!=BAD){
+		track_map();
+		data.nonKeyFrames.clear();
+		data.nonKeyFrames.push_back(currentF);
+		updateMotionModel();
+		if(previousF){
+			assert(previousF->measuresCnt == previousMs.size());
+			cout<<"previousF:"<<previousF->imgIdx<<","<<previousF->measuresCnt<<endl;
+
+		}else{
+			assert(previousMs.empty());
+		}
+
+		/*if(currentMs.size()>=10){
+			data.addFrame(currentF);
+			for(vector<Measurement::Ptr>::const_iterator it = currentMs.begin(); it!=currentMs.end(); ++it){
+				data.addMeasurement(*it);
+			}
+			data.addToVocabDB(currentF);
+		}*/
+
+		//update landmarks' recent list
+		for(vector<Measurement::Ptr>::const_iterator it = currentMs.begin(); it!= currentMs.end(); ++it){
+			const int kptIdx = (*it)->featureIdx;
+			(*it)->landmark->addRecent(currentF->kpts[kptIdx], currentF->decs.row(kptIdx),5); //keep maximum 5 recent records
+		}
+		
+
+	}else{
+		//previousF.reset();
+		//previousMs.clear();
+
+		//TODO: if removes these two lines, when tracking lost, the frame postion not updated
+		data.nonKeyFrames.clear();
+		data.nonKeyFrames.push_back(currentF);
+	}
+
+	int a = currentF->measuresCnt;
+	int b = currentMs.size();
+	assert(a == b);
+	for(vector<Measurement::Ptr>::iterator it = currentMs.begin(); it!=currentMs.end(); ++it){
+		currentF->trackedKpts.push_back((*it)->featureIdx);
+	}
+
+}
+
+void SFMVideoPipeline::updateMotionModel(){
+	if(previousF){
+		t_velocity			= (currentF->position-previousF->position);///(currentF->time-previousF->time);
+		Quaterniond dR		= currentF->rotation.conjugate()*previousF->rotation;	//rotation from prev frame to current frame
+		AngleAxisd 	dRaa	= AngleAxisd(dR);
+		r_axis				= dRaa.axis().normalized();
+		r_velocity			= dRaa.angle();///(currentF->time-previousF->time);
+	}else{
+		t_velocity			= Vector3d::Zero();
+		r_axis				= Vector3d::Zero();
+		r_velocity			= 0;
+	}
+}
+
+//precondition: current frame is quite close to one of the map keyframes
+//yields a quite accurate estimate of camera pose if sufficient inliers
+bool SFMVideoPipeline::track_reference( bool changeRef){
+
+	Data &data = Data::GetInstance();
+	startCorners.clear();
+	endCorners.clear();
+	if(changeRef){
+
+		referenceF.reset();
+		//find a new reference frame
+		vector<pair<Frame::Ptr, double> > frameMatches = data.findNBestMatchingFramesFromVocab(currentF, 1);
+		if(frameMatches.empty()){
+			//probably because no feature detected in the current image
+			return false;
+		}
+		referenceF = frameMatches[0].first;
+	}
+
+	sfm->matchByBOW(currentF, referenceF, matches_proj, 0.75, 60, true);
+	//sfm->matchFeatures(currentF->decs, referenceF->decs, matches_proj);
+
+	if(matches_proj.size()<30){
+		//not the right scene
+		matches_proj.clear();
+		return false;
+	}
+
+	vector<Measurement::Ptr> ms;
+	for(vector<DMatch>::iterator jt = matches_proj.begin(); jt!=matches_proj.end(); ++jt){
+		Measurement::Ptr m 			= data.getMeasurement(referenceF,jt->trainIdx);
+		assert(m && !(m->deleted));
+		Measurement::Ptr newM(new Measurement(currentF, jt->queryIdx, m->landmark));
+		ms.push_back(newM);
+	}
+
+	//find pose with only inliers, use high constraint for better accuracy
+	ms = sfm->solvePnP(currentF, ms, 1e-5);
+	// ms = sfm->solvePnP_gv(currentF, ms, 1e-5);
+
+	//ms = sfm->optimizeCamPose_gv(currentF,ms,1000,1);
+	if(ms.size()<3){
+		currentMs.clear();
+		currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+		return false;
+	}
+
+	const vector<Measurement::Ptr> &referenceMs = data.getMeasurements(referenceF);
+	const vector<Measurement::Ptr> &moreMs = sfm->getMeasuresByProjection(currentF, referenceMs, ms, 7, 0.99, 60);
+	ms.insert(ms.end(), moreMs.begin(), moreMs.end());
+
+	//ms = sfm->optimizeCamPose_gv(currentF,ms,3);
+	ms = sfm->solvePnP(currentF, ms, 1e-5);
+	// ms = sfm->solvePnP_gv(currentF, ms, 1e-5);
+	//ms = sfm->optimizeCamPose_gv(currentF,ms,1000,1);
+	if(ms.size()<3){
+		currentMs.clear();
+		currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+		return false;
+	}
+
+	const vector<Measurement::Ptr> &moreMs2 = sfm->getMeasuresByProjection(currentF, referenceMs, ms, 7, 0.99, 90, true);
+	ms.insert(ms.end(), moreMs2.begin(), moreMs2.end());
+	//sfm->optimizeCamPose_gv(currentF,ms,1,0,0);
+
+	matches_proj.clear();
+	for(vector<Measurement::Ptr>::const_iterator jt = ms.begin(); jt!=ms.end(); ++jt){
+		const Measurement::Ptr &mRef	= data.getMeasurement((*jt)->landmark, referenceF);
+		assert(mRef);
+		matches_proj.push_back(DMatch((*jt)->featureIdx, mRef->featureIdx, 0));
+	}
+
+	currentMs.clear();
+	currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+
+
+	if(ms.size()<10){
+		return false;
+	}
+
+	return true;
+}
+
+//precondition: velocity known
+//yields a quite accurate estimate of camera pose if sufficient inliers
+bool SFMVideoPipeline::track_motion(){
+
+	referenceF = previousF;
+	bool trackedOpt = track_optflow();
+
+	if(!trackedOpt){
+		//calculate rough camera pose using previous velocity
+		currentF->position = previousF->position+t_velocity;//*(currentF->time-previousF->time);
+
+		//using last speed, update current rotation
+		if(r_velocity == 0){
+			currentF->rotation = previousF->rotation;
+			currentF->rotation.normalize();
+		}else{
+			//the angular velocity is from previous to current
+			//but our frame rotation is from current back to world axis
+			//so need to negate the rotation. we do so by negating the rotation angle
+			AngleAxisd	deltaR(-r_velocity,r_axis);
+			//AngleAxisd	deltaR(-r_velocity*(currentF->time-previousF->time),r_axis);
+			currentF->rotation = Quaterniond(deltaR)*previousF->rotation;
+			currentF->rotation.normalize();
+		}
+	}
+
+	assert(currentF->measuresCnt == currentF->measuresCnt);
+
+	//search tracked points from previous frame using projection
+	vector<Measurement::Ptr> ms;
+	ms = sfm->getMeasuresByProjection(currentF, previousMs, ms, 7, 0.75, 60);
+	
+	if(ms.size()<10){
+		ms = sfm->getMeasuresByProjection(currentF, previousMs, ms, 14, 0.75, 60);
+		//ms = sfm->getMeasuresByProjection(currentF, previousMs, ms, 14, 0.9, 90);
+	}
+
+	matches.clear();
+	for(vector<Measurement::Ptr>::const_iterator it = previousMs.begin(); it!=previousMs.end(); ++it){
+		for(vector<Measurement::Ptr>::const_iterator jt = ms.begin(); jt!=ms.end(); ++jt){
+			if((*it)->landmark.get() == (*jt)->landmark.get()){
+				matches.push_back(DMatch((*jt)->featureIdx, (*it)->featureIdx, 0));
+				break;
+			}
+		}
+	}
+	cout<<"motion matches by projection:"<<ms.size()<<endl;
+
+	
+
+	if(ms.size()<10){
+		/*ms.clear();
+		//try standard matching
+		sfm->matchByBOW(currentF, previousF, matches_proj, 0.75, 60);
+		//sfm->matchFeatures(currentF->decs, referenceF->decs, matches_proj);
+
+		for(vector<DMatch>::iterator jt = matches_proj.begin(); jt!=matches_proj.end(); ++jt){
+			for(vector<Measurement::Ptr>::const_iterator kt = previousMs.begin(); kt!=previousMs.end(); ++kt){
+				if(jt->trainIdx == (*kt)->featureIdx){
+					Measurement::Ptr newM(new Measurement(currentF, jt->queryIdx, (*kt)->landmark));
+					ms.push_back(newM);
+					break;
+				}
+			}
+		}
+
+		cout<<"motion matches by bow:"<<ms.size()<<endl;*/
+
+		if(ms.size()<10){
+			currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+			return false;
+		}
+	}
+
+	assert(currentF->measuresCnt == ms.size());
+	assert(currentMs.empty());
+
+
+	//find pose with only inliers, use high constraint for better accuracy
+	ms = sfm->solvePnP(currentF, ms, 1e-5);
+	// ms = sfm->solvePnP_gv(currentF, ms, 1e-5);
+	//ms = sfm->optimizeCamPose_gv(currentF,ms,1000,1);
+	if(ms.size()<3){
+		cout<<"track_motion: solvepnp less than 3"<<endl;
+		currentMs.clear();
+		currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+		return false;
+	}
+
+	//refind measures using a small constraint
+	const vector<Measurement::Ptr> &moreMs = sfm->getMeasuresByProjection(currentF, previousMs, ms, 7, 0.99, 60);
+	ms.insert(ms.end(), moreMs.begin(), moreMs.end());
+	//sfm->optimizeCamPose_gv(currentF,ms,1,0,2);
+
+	/*ms = sfm->solvePnP_gv(currentF, ms, 1e-5);//sfm->optimizeCamPose_gv(currentF,ms,3);
+	if(ms.size()<3){
+		cout<<"track_motion: optimize2 less than 3"<<endl;
+		currentMs.clear();
+		currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+		return false;
+	}
+
+	const vector<Measurement::Ptr> &moreMs2 = sfm->getMeasuresByProjection(currentF, previousMs, ms, 7, 0.99, 90, true);
+	ms.insert(ms.end(), moreMs2.begin(), moreMs2.end());*/
+
+	matches_proj.clear();
+	for(vector<Measurement::Ptr>::const_iterator it = previousMs.begin(); it!=previousMs.end(); ++it){
+		for(vector<Measurement::Ptr>::const_iterator jt = ms.begin(); jt!=ms.end(); ++jt){
+			if((*it)->landmark.get() == (*jt)->landmark.get()){
+				matches_proj.push_back(DMatch((*jt)->featureIdx, (*it)->featureIdx, 0));
+				break;
+			}
+		}
+	}
+	currentMs.clear();
+	currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+
+	if(ms.size()<10){
+		cout<<"track_motion: total tracked less than 10"<<endl;
+		return false;
+	}
+
+	
+	return true;
+}
+
+//precondition: a map exists and estimate of camera pose is known
+//yields more measures and drift-free camera pose
+bool SFMVideoPipeline::track_map(){
+
+	Data &data = Data::GetInstance();
+	const vector<Measurement::Ptr> &referenceMs = (data.getFrame(referenceF->imgIdx)) ? data.getMeasurements(referenceF) : previousMs;
+	
+	const vector<Measurement::Ptr> &moreMs = sfm->getMoreMeasuresByProjection(currentF,nullptr,currentMs,7, 0.99, 90);
+	currentMs.insert(currentMs.end(), moreMs.begin(), moreMs.end());
+
+	currentMs = sfm->solvePnP(currentF, currentMs, 1e-5);
+	// currentMs = sfm->solvePnP_gv(currentF, currentMs, 1e-5);
+	//sfm->bundleAdjustmentLocalFixPoints(currentMs);
+	//sfm->optimizeCamPose_gv(currentF,currentMs,1,0,1);
+
+
+	//const vector<Measurement::Ptr> &moreMs2 = sfm->getMoreMeasuresByProjection(currentF,nullptr,currentMs,3, 0.99, 90, true);
+	//currentMs.insert(currentMs.end(), moreMs2.begin(), moreMs2.end());
+
+	matches.clear();
+	for(vector<Measurement::Ptr>::const_iterator jt = currentMs.begin(); jt!=currentMs.end(); ++jt){
+		for(vector<Measurement::Ptr>::const_iterator kt = referenceMs.begin(); kt!=referenceMs.end(); ++kt){
+			if((*jt)->landmark.get() == (*kt)->landmark.get()){
+				matches.push_back(DMatch((*jt)->featureIdx, (*kt)->featureIdx, 0));
+				break;
+			}
+		}
+	}
+
+	return true;
+	
+
+
+	double errorThresh = 3;
+
+	for(int i=0; i<2; i++){
+
+		const vector<Measurement::Ptr> &ms = sfm->getMoreMeasuresByProjection(currentF,nullptr,currentMs,errorThresh, 0.8, 90);
+		currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+
+
+		//currentMs = sfm->solvePnP_gv(currentF,currentMs,1e-6);
+		//sfm->bundleAdjustmentLocalFixPoints(currentMs);
+		/*vector<Measurement::Ptr> prunedMs;
+		for(vector<Measurement::Ptr>::const_iterator it = currentMs.begin(); it!=currentMs.end(); ++it){
+			double error = sfm->computeReprojectionError(currentF, (*it)->landmark->pt, (*it)->featureIdx);
+			if(error<errorThresh){
+				prunedMs.push_back(*it);
+			}
+		}
+		currentMs = prunedMs;*/
+
+		// currentMs = sfm->optimizeCamPose_gv(currentF,currentMs,errorThresh/2);
+	}
+
+	const vector<Measurement::Ptr> &ms = sfm->getMoreMeasuresByProjection(currentF,nullptr,currentMs,errorThresh, 0.8, 90);
+	currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+
+	matches.clear();
+	//const vector<Measurement::Ptr> &referenceMs = (data.getFrame(referenceF->imgIdx)) ? data.getMeasurements(referenceF) : previousMs;
+	for(vector<Measurement::Ptr>::const_iterator jt = currentMs.begin(); jt!=currentMs.end(); ++jt){
+		for(vector<Measurement::Ptr>::const_iterator kt = referenceMs.begin(); kt!=referenceMs.end(); ++kt){
+			if((*jt)->landmark.get() == (*kt)->landmark.get()){
+				matches.push_back(DMatch((*jt)->featureIdx, (*kt)->featureIdx, 0));
+				break;
+			}
+		}
+	}
+
+	return true;
+}
+
+//this is just to do a more accurate motion estimation
+bool SFMVideoPipeline::track_optflow()
+{
+	bool showDebug = false;
+
+	if(previousMs.empty()){
+		cout<<"optflow failure, previous ms empty"<<endl;
+		return false;
+	}
+
+	referenceF = previousF;
+	
+	Data &data = Data::GetInstance();
+	startCorners.clear();
+	endCorners.clear();
+
+	for(vector<Measurement::Ptr>::iterator it = previousMs.begin(); it!=previousMs.end(); ++it){
+		startCorners.push_back(previousF->kpts[(*it)->featureIdx].pt);
+	}
+
+	vector<unsigned char> status;
+	vector<float> err;
+	cv::Size searchWindow       = cv::Size(31,31);
+	int maxLevel                = 3;
+	cv::TermCriteria criteria   = cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
+	int flags                   = 0; //OPTFLOW_USE_INITIAL_FLOW//OPTFLOW_LK_GET_MIN_EIGENVALS
+	double minEigThreshold      = 1e-4;
+	cv::calcOpticalFlowPyrLK(previousF->img, currentF->img, startCorners, endCorners, status, err, searchWindow, maxLevel, criteria, flags, minEigThreshold);
+	assert(startCorners.size() == endCorners.size());
+
+
+	//create temporary keypoint and measurement
+	vector<Measurement::Ptr> ms;
+	int oldKptsSize = currentF->kpts.size();
+	int trackCnt = 0;
+	vector<Point2f> startGood, endGood;
+
+	for(unsigned int i=0; i<endCorners.size(); i++){
+		//by right, checking status is enough, but there was a bug in opencv so need to check more to be sure
+		if(status[i] && endCorners[i].x>=0 && endCorners[i].x<currentF->img.cols && endCorners[i].y>=0 && endCorners[i].y<currentF->img.rows){
+			currentF->kpts.push_back(KeyPoint(endCorners[i],0,0,0));	
+			currentF->measured.push_back(0);
+			Measurement::Ptr m(new Measurement(currentF, oldKptsSize+trackCnt, previousMs[i]->landmark));
+			ms.push_back(m);
+			trackCnt++;
+
+			if(showDebug){
+				startGood.push_back(startCorners[i]);
+				endGood.push_back(endCorners[i]);
+			}
+		}
+	}
+
+	if(showDebug){
+		startCorners.swap(startGood);	//no copy
+		endCorners.swap(endGood);		//no copy
+	}else{
+		startCorners.clear();
+		endCorners.clear();
+	}
+
+	ms = sfm->solvePnP(currentF,ms,1e-5);
+	// ms = sfm->solvePnP_gv(currentF,ms,1e-5);
+	//ms = sfm->optimizeCamPose_gv(currentF,ms,1000,1);
+	//sfm->bundleAdjustmentLocalFixPoints(ms);
+	cout<<"optflow tracked = "<<ms.size()<<"/"<<trackCnt<<endl;
+
+	/*if(ms.size()<3){
+		ms.clear();
+		currentF->kpts.resize(oldKptsSize);
+		currentF->measured.resize(oldKptsSize);
+		assert(currentF->measuresCnt == 0);
+		return false;
+	}
+
+	currentMs.clear();
+	currentMs.insert(currentMs.end(), ms.begin(), ms.end());
+	return true;*/
+	
+
+	trackCnt = ms.size(); 
+	ms.clear();	//must do this before resizing kpts & measured
+	currentF->kpts.resize(oldKptsSize);
+	currentF->measured.resize(oldKptsSize);
+	assert(currentF->measuresCnt == 0);
+
+	if(trackCnt<3){
+		return false;
+	}
+
+	return true;
+}
+
+void SFMVideoPipeline::drawDebug()
+{
+
+	if(renderImg.empty() || renderImg.rows != currentF->img.rows*2 || renderImg.cols != currentF->img.cols){
+		renderImg = Mat(currentF->img.rows*2, currentF->img.cols, CV_8UC3);
+	}
+	Point2f offset(0, currentF->img.rows);	//offset to be added to original image coordinates to show correctly in imgDn
+	Mat imgUp(renderImg, Rect(0, 0, currentF->img.cols, currentF->img.rows)); // only creates mat header that points to renderImg's data
+	assert(!imgUp.empty());
+	Mat imgDn(renderImg, Rect(0, currentF->img.rows, currentF->img.cols, currentF->img.rows)); // only creates mat header that points to renderImg's data
+	assert(!imgDn.empty());
+	if(state==INITIALIZING){
+		for(unsigned int i=0; i<matches.size(); i++){
+			Point2f pt1 = firstF->kpts[matches[i].queryIdx].pt;
+			Point2f pt2 = currentF->kpts[matches[i].trainIdx].pt;
+			cv::line(imgUp, pt1, pt2, cv::Scalar(255), 2);
+		}
+	}
+
+
+	//draw all kpts
+	vector<KeyPoint> &kpts1 	= currentF->kpts;
+	//XXX:even if input img was in gray scale output image is always 3 channel BGR, because markers have color
+	drawKeypoints(currentF->img, kpts1, imgUp, Scalar(255,0,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DEFAULT);
+	//highlight tracked kpts
+	vector<int> &trackedKpts	= currentF->trackedKpts;
+	vector<KeyPoint> kpts_tracked;
+	for(vector<int>::iterator it = trackedKpts.begin(); it!=trackedKpts.end(); ++it){
+		kpts_tracked.push_back(kpts1[*it]);
+	}
+	drawKeypoints(imgUp, kpts_tracked, imgUp, Scalar(0,255,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DRAW_OVER_OUTIMG );
+
+
+	if(!referenceF){
+		//reference frame not found
+		//black out down image
+		imgDn = Scalar(0);	//(0,0,0) for 3 channels
+
+	}else{
+		//reference frame found
+		vector<KeyPoint> &kpts2 	= referenceF->kpts;
+		if(referenceF->img.empty()){
+			imgDn = Scalar(0);
+			vector<KeyPoint> measuredKpts;
+			int kptsCnt = referenceF->kpts.size();
+			for(int i=0; i<kptsCnt; i++){
+				if(referenceF->measured[i]){
+					measuredKpts.push_back(referenceF->kpts[i]);
+				}
+			}
+			drawKeypoints(imgDn, measuredKpts, imgDn, Scalar(255,0,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DEFAULT);
+		}else{
+			vector<KeyPoint> measuredKpts;
+			int kptsCnt = referenceF->kpts.size();
+			for(int i=0; i<kptsCnt; i++){
+				if(referenceF->measured[i]){
+					measuredKpts.push_back(referenceF->kpts[i]);
+				}
+			}
+			drawKeypoints(referenceF->img, measuredKpts, imgDn, Scalar(255,0,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DEFAULT);
+		}
+		
+		//draw bottom layer matches
+		vector<KeyPoint> kpts1matched, kpts2matched;
+		for(vector<DMatch>::iterator it = matches.begin(); it!=matches.end(); ++it){
+			KeyPoint &kpt1 = kpts1[it->queryIdx];
+			KeyPoint &kpt2 = kpts2[it->trainIdx];
+			kpts1matched.push_back(kpt1);
+			kpts2matched.push_back(kpt2);
+			//draw match lines
+			if(!drawAR){
+				line(renderImg, kpt1.pt, kpt2.pt+offset, Scalar(0,255,0), 2);
+			}
+		}
+
+		//draw top layer matches
+		for(vector<DMatch>::iterator it = matches_proj.begin(); it!=matches_proj.end(); ++it){
+			KeyPoint &kpt1 = kpts1[it->queryIdx];
+			KeyPoint &kpt2 = kpts2[it->trainIdx];
+			kpts1matched.push_back(kpt1);
+			kpts2matched.push_back(kpt2);
+			//draw match lines
+			if(!drawAR){
+				line(renderImg, kpt1.pt, kpt2.pt+offset, Scalar(0,0,255), 2);
+			}
+		}
+
+		drawKeypoints(imgUp, kpts1matched, imgUp, Scalar(0,255,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DRAW_OVER_OUTIMG );
+		drawKeypoints(imgDn, kpts2matched, imgDn, Scalar(0,255,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DRAW_OVER_OUTIMG );//DRAW_RICH_KEYPOINTS);//
+
+		if(drawAR){
+			Camera &camera = Camera::GetInstance();
+			Camera::ProjectionStatus s;
+
+			//draw plane grid
+			int rows = 8;
+			int cols = 8;
+			int size = 1;
+			//rows
+			for(int i=-rows/2; i<=rows/2; i++){
+				Vector2d pt1_e = camera.project(currentF,Vector3d(-cols/2*size,i*size,0), s);
+				Vector2d pt2_e = camera.project(currentF,Vector3d(cols/2*size,i*size,0), s);
+				Point2f pt1(pt1_e[0],pt1_e[1]);
+				Point2f pt2(pt2_e[0],pt2_e[1]);
+				line(imgUp, pt1, pt2, Scalar(0,125,0), 2);
+			}
+			//cols
+			for(int i=-cols/2; i<=cols/2; i++){
+				Vector2d pt1_e = camera.project(currentF,Vector3d(i*size,-rows/2*size,0), s);
+				Vector2d pt2_e = camera.project(currentF,Vector3d(i*size,rows/2*size,0), s);
+				Point2f pt1(pt1_e[0],pt1_e[1]);
+				Point2f pt2(pt2_e[0],pt2_e[1]);
+				line(imgUp, pt1, pt2, Scalar(0,125,0), 2);
+			}
+
+			//draw axis
+			Vector2d origin_e = camera.project(currentF,Vector3d(0,0,0), s);
+			Vector2d xAxis_e = camera.project(currentF,Vector3d(size*rows/2,0,0), s);
+			Vector2d yAxis_e = camera.project(currentF,Vector3d(0,size*rows/2,0), s);
+			Vector2d zAxis_e = camera.project(currentF,Vector3d(0,0,size*rows/2), s);
+			Point2f origin(origin_e[0],origin_e[1]);
+			Point2f xAxis(xAxis_e[0],xAxis_e[1]);
+			Point2f yAxis(yAxis_e[0],yAxis_e[1]);
+			Point2f zAxis(zAxis_e[0],zAxis_e[1]);
+			line(imgUp, origin, xAxis, Scalar(255,0,0), 2);
+			line(imgUp, origin, yAxis, Scalar(0,255,0), 2);
+			line(imgUp, origin, zAxis, Scalar(0,0,255), 2);
+
+			
+
+		}
+
+	}
+	stringstream ss;
+	ss<<currentF->imgIdx<<" "<<loopTime<<" s   ";
+	ss<<"Quality="<<trackingQuality<<"    ";
+
+	int refMeasures = (referenceF)?referenceF->measuresCnt :0;
+	ss<<"tracked:"<<matches.size()<<"("<<matches_proj.size()<<")="<<currentF->trackedKpts.size()<<"/"<<refMeasures<<"/"<<currentF->kpts.size();
+	putText(renderImg, ss.str(), Point(5,20), FONT_HERSHEY_SIMPLEX , 0.5, Scalar(255,0,0), 2);
+
+
+	if(referenceF){
+		stringstream ss2;
+		ss2<<referenceF->imgIdx;
+		putText(imgDn, ss2.str(), Point(5,20), FONT_HERSHEY_SIMPLEX , 0.5, Scalar(255,0,0), 2);
+	}
+
+	if(!endCorners.empty()){
+		vector<KeyPoint> tmpKpt1, tmpKpt2;
+		for(int i=0; i<endCorners.size(); i++){
+			line(renderImg, endCorners[i], startCorners[i]+offset, Scalar(255,255,0), 2);
+			tmpKpt1.push_back(KeyPoint(endCorners[i],0,0,0));
+			tmpKpt2.push_back(KeyPoint(startCorners[i],0,0,0));
+		}
+		drawKeypoints(imgUp, tmpKpt1, imgUp, Scalar(255,255,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DRAW_OVER_OUTIMG );
+		drawKeypoints(imgDn, tmpKpt2, imgDn, Scalar(255,255,0)/*cv::Scalar::all(-1)*/, DrawMatchesFlags::DRAW_OVER_OUTIMG );//DRAW_RICH_KEYPOINTS);//
+	}
+
+
+	emit plotData((double)frameNum, (double)(currentF->trackedKpts.size()), shouldHighlight);
+	frameNum++;
+}
+

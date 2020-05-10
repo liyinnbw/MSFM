@@ -1,0 +1,63 @@
+#ifndef THREADSAFEQUEUE_H
+#define THREADSAFEQUEUE_H
+
+#include <queue>
+#include <thread>
+#include <mutex>
+
+template <typename T>
+class ThreadsafeQueue
+{
+ public:
+  ThreadsafeQueue(){
+      sizeLim = 0;
+  }
+  ThreadsafeQueue(unsigned int size){
+      sizeLim = size;
+  }
+
+  ~ThreadsafeQueue(){
+  }
+
+  //this does not make copy when return, good to use
+  void pop(T& item)
+  {
+    std::lock_guard<std::mutex> mlock(mutex_);
+    if (!(queue_.empty())){
+        item = queue_.front();
+        queue_.pop();
+    }else{
+        item.reset();
+    }
+  }
+
+  void push(const T& item)
+  {
+    std::lock_guard<std::mutex> mlock(mutex_);
+    if(sizeLim ==0 || queue_.size()<sizeLim){
+        //when queue is not full
+        //push will make copy. but since we use pointer item, minimal impact
+        queue_.push(item);
+    }else{
+        //when queue is full, pop earliest item
+        queue_.pop();
+        queue_.push(item);
+    }
+  }
+
+    long size(){
+        std::lock_guard<std::mutex> mlock(mutex_);
+        return queue_.size();
+    }
+
+  ThreadsafeQueue(const ThreadsafeQueue&) = delete;            // disable copying
+  ThreadsafeQueue& operator=(const ThreadsafeQueue&) = delete; // disable assignment
+
+ private:
+  std::queue<T> queue_;
+  std::mutex mutex_;
+  unsigned int sizeLim;
+
+};
+
+#endif
