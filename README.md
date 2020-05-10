@@ -18,7 +18,7 @@ Best on Ubuntu 16.04 and above.
 1. Apt install dependencies
 ```
 $> sudo apt update
-$> sudo apt install build-essentials git cmake libvtk6-qt-dev libopencv-dev libceres-dev
+$> sudo apt install build-essential git cmake libvtk6-qt-dev libopencv-dev libceres-dev
 ```
 2. Create /build folder under /MSFM
 ```
