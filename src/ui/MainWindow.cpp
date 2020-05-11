@@ -120,7 +120,8 @@ void MainWindow::createActions()
 	// connect(saveFeaturesAction, SIGNAL(triggered()), this, SLOT(handleSaveFeatures()));
 
     featureMatchAction = new QAction(tr("&Match"), this);
-    featureMatchAction->setStatusTip(tr("Match selected image pair"));
+    featureMatchAction->setStatusTip(tr("Show feature matches between selected pair of images"));
+	featureMatchAction->setToolTip(tr("Show feature matches between selected pair of images"));
     connect(featureMatchAction, SIGNAL(triggered()), this, SLOT(handleFeatureMatch()));
     //connect(featureMatchAction, SIGNAL(triggered()), matchPanelModel, SLOT(getMatches()));
 
@@ -128,36 +129,41 @@ void MainWindow::createActions()
     epipolarMatchAction->setStatusTip(tr("Match selected image pair using epipolar search"));
     connect(epipolarMatchAction, SIGNAL(triggered()), this, SLOT(handleEpipolarFeatureMatch()));
 
-	reconstructAction = new QAction(tr("&Reconstruct"), this);
-	reconstructAction->setStatusTip(tr("Run a reconstruction step"));
+	reconstructAction = new QAction(tr("&2.Reconstruct"), this);
+	reconstructAction->setStatusTip(tr("Reconstruct 3D scene from selected pair of images"));
+	reconstructAction->setToolTip(tr("Reconstruct 3D scene from selected pair of images"));
 	connect(reconstructAction, SIGNAL(triggered()), this, SLOT(handleReconstruct()));
 	
 	addMoreMeasuresAction = new  QAction(tr("&MoreMeasures"), this);
 	addMoreMeasuresAction->setStatusTip(tr("Add more measurements to visible landmarks"));
 	connect(addMoreMeasuresAction, SIGNAL(triggered()), this, SLOT(handleAddMoreMeasures()));
 
-	addMorePointsAction = new QAction(tr("&MorePoints"), this);
-	addMorePointsAction->setStatusTip(tr("Add more points & measures using epipolar search"));
+	addMorePointsAction = new QAction(tr("&4.Add More"), this);
+	addMorePointsAction->setStatusTip(tr("Add more points & measures between selected pair of images"));
+	addMorePointsAction->setToolTip(tr("Add more points & measures between selected pair of images"));
 	connect(addMorePointsAction, SIGNAL(triggered()), this, SLOT(handleAddMorePoints()));
 
 	poseOptimizationAction = new QAction(tr("&Optimize"), this);
 	poseOptimizationAction->setStatusTip(tr("Optimize current camera pose using all measurements"));
 	connect(poseOptimizationAction, SIGNAL(triggered()), this, SLOT(handlePoseOptimization()));
 
-	bundleAdjustmentAction = new QAction(tr("&BA"), this);
-	bundleAdjustmentAction->setStatusTip(tr("Run bundle adjustment on current cloud"));
+	bundleAdjustmentAction = new QAction(tr("&3.Bundle Adjust"), this);
+	bundleAdjustmentAction->setStatusTip(tr("Run bundle adjustment to optimize 3D structure and camera poses"));
+	bundleAdjustmentAction->setToolTip(tr("Run bundle adjustment to optimize 3D structure and camera poses"));
 	connect(bundleAdjustmentAction, SIGNAL(triggered()), this, SLOT(handleBundleAdjustment()));
 
-	nextPairAction = new QAction(tr("&NextPair"),this);
+	nextPairAction = new QAction(tr("&1.Next Pair"),this);
 	nextPairAction->setStatusTip(tr("Let the program choose the next pair to match"));
+	nextPairAction->setToolTip(tr("Let the program choose the next pair to match"));
 	connect(nextPairAction, SIGNAL(triggered()), this, SLOT(handleNextPair()));
 
 	checkMatchAction = new QAction(tr("&CheckMatch"),this);
 	checkMatchAction->setStatusTip(tr("Check quality of match"));
 	connect(checkMatchAction, SIGNAL(triggered()), this, SLOT(handleCheckMatch()));
 
-	removeBadAction = new QAction(tr("&RemoveBad"),this);
+	removeBadAction = new QAction(tr("&4.Remove Bad"),this);
 	removeBadAction->setStatusTip(tr("Remove 3D points with high reprojection error"));
+	removeBadAction->setToolTip(tr("Remove 3D points with high reprojection error"));
 	connect(removeBadAction, SIGNAL(triggered()), this, SLOT(handleRemoveBad()));
 
 	removeCameraAction = new QAction(tr("&RemoveCamera"),this);
@@ -192,14 +198,14 @@ void MainWindow::createToolBars()
     sfmToolBar = addToolBar(tr("SFM"));
 
     sfmToolBar->addAction(nextPairAction);
-    sfmToolBar->addAction(featureMatchAction);
+    //sfmToolBar->addAction(featureMatchAction);
     // sfmToolBar->addAction(epipolarMatchAction);
     // sfmToolBar->addAction(checkMatchAction);
     sfmToolBar->addAction(reconstructAction);
     // sfmToolBar->addAction(addMoreMeasuresAction);
-    sfmToolBar->addAction(addMorePointsAction);
     // sfmToolBar->addAction(poseOptimizationAction);
 	sfmToolBar->addAction(bundleAdjustmentAction);
+	sfmToolBar->addAction(addMorePointsAction);
 	sfmToolBar->addAction(removeBadAction);
 	// sfmToolBar->addAction(removeCameraAction);
 
@@ -285,6 +291,17 @@ void MainWindow::handleReconstruct(){
 	matchPanel->getMask(mask);
 	int imgIdx1, imgIdx2;
 	matchPanel->getSelectedImages(imgIdx1, imgIdx2);
+	if(imgIdx1<0 || imgIdx2<0){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image or 2nd image cannot be empty!");
+		return;
+	}
+	if(imgIdx1== imgIdx2){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image and 2nd image cannot be the same!");
+		return;
+	}
+
 	coreInterface->reconstruct(imgIdx1, imgIdx2, mask);
 }
 
@@ -292,6 +309,17 @@ void MainWindow::handleAddMoreMeasures(){
 	statusBar()->showMessage(tr("adding more measures..."));
 	int imgIdx1, imgIdx2;
 	matchPanel->getSelectedImages(imgIdx1, imgIdx2);
+	if(imgIdx1<0 || imgIdx2<0){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image or 2nd image cannot be empty!");
+		return;
+	}
+	if(imgIdx1== imgIdx2){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image and 2nd image cannot be the same!");
+		return;
+	}
+
 	coreInterface->addMoreMeasures(imgIdx1);
 }
 
@@ -299,6 +327,17 @@ void MainWindow::handleAddMorePoints(){
 	statusBar()->showMessage(tr("adding more points..."));
 	int imgIdx1, imgIdx2;
 	matchPanel->getSelectedImages(imgIdx1, imgIdx2);
+	if(imgIdx1<0 || imgIdx2<0){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image or 2nd image cannot be empty!");
+		return;
+	}
+	if(imgIdx1== imgIdx2){
+		QMessageBox messageBox;
+		messageBox.critical(0,"Error","1st image and 2nd image cannot be the same!");
+		return;
+	}
+
 	coreInterface->addMorePoints(imgIdx1, imgIdx2);
 }
 
@@ -348,6 +387,16 @@ void MainWindow::displayPointCloud(bool resetView){
 	epipolarPanel->handleImagesUsed(useImgIdxs);
 	statusBar()->showMessage(tr("image list updated"));
 
+	//also show image matches
+	int imgIdx1, imgIdx2;
+	matchPanel->getSelectedImages(imgIdx1, imgIdx2);
+	if(imgIdx1>=0 && imgIdx2>=0 && imgIdx1!= imgIdx2){
+		handleFeatureMatch();
+	}
+
+	//also backproject points
+	visibleImagesPanel->showProjections();
+
 }
 
 void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
@@ -360,25 +409,25 @@ void MainWindow::highlightPoints(const int imgIdx1, const int imgIdx2){
 	imgIdxs.push_back(imgIdx2);
 	vector<Measurement::Ptr> ms;
 
-	coreInterface->getMeasurementsByFrames(imgIdxs, ms);
-	cloudViewer->visualizeMeasurements(ms);
+	// coreInterface->getMeasurementsByFrames(imgIdxs, ms);
+	// cloudViewer->visualizeMeasurements(ms);
 
 }
 
 void MainWindow::handleShowPointsMeasures(const QList<int> idxs){
-	statusBar()->showMessage(tr("showing cameras..."));
-	displayPointCloud(false);
+	// statusBar()->showMessage(tr("showing cameras..."));
+	// displayPointCloud(false);
 
-	vector<int> lmIdxs;
-	lmIdxs.reserve(idxs.size());
-	for(int i=0; i<idxs.size(); i++){
-		lmIdxs.push_back(idxs[i]);
-	}
-	vector<Measurement::Ptr> ms;
+	// vector<int> lmIdxs;
+	// lmIdxs.reserve(idxs.size());
+	// for(int i=0; i<idxs.size(); i++){
+	// 	lmIdxs.push_back(idxs[i]);
+	// }
+	// vector<Measurement::Ptr> ms;
 
-	coreInterface->getMeasurementsByLandMarks(lmIdxs, ms);
-	cloudViewer->visualizeMeasurements(ms);
-	visibleImagesPanel->showMeasurements(ms);
+	// coreInterface->getMeasurementsByLandMarks(lmIdxs, ms);
+	// cloudViewer->visualizeMeasurements(ms);
+	// visibleImagesPanel->showMeasurements(ms);
 
 }
 
@@ -445,7 +494,7 @@ void MainWindow::ShowStatus(const QString &message){
 void MainWindow::openFile()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-        tr("Open Project"), "/home/yoyo/Desktop/vmshare/videos/VID_20160505_112747/nvm",
+        tr("Open Project"), "",
 		tr("NVM files (*.nvm)\nMAP files (*.map)\nTINY files (*.tiny)\nTINY2 files (*.tiny2)\nYAML files (*.yaml)\nPATCH files (*.patch)"));
 
     if (!fileName.isEmpty() && loadFile(fileName)==0){
@@ -457,7 +506,7 @@ void MainWindow::openFile()
 void MainWindow::openDirectory(){
 
 	 QString dir = QFileDialog::getExistingDirectory(this,
-			 tr("Open Directory"), "/home/yoyo/Desktop/data/pics",
+			 tr("Open Directory"), "",
 			 QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
 	 if(dir==""){
@@ -500,7 +549,7 @@ void MainWindow::saveFileAs(){
 	QFileDialog fd(this);
 	QString ext;
 	QString fileName = fd.getSaveFileName(this,
-	        tr("Save Project"), "/home/yoyo/Desktop/data/save",
+	        tr("Save Project"), "",
 	        tr("MAP files (*.map)\nTINY2 files (*.tiny2)\nTINY files (*.tiny)\nPLY files (*.ply)\nYAML files (*.yaml)\nNVM files (*.nvm)\nSKTXT files (*.sktxt)"), &ext);
 
 	if (!fileName.isEmpty()){
