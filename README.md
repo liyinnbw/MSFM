@@ -12,7 +12,7 @@ This tool enables user to load a sequence of images and do sparse 3D point cloud
 5. Visualization of reconstructed point cloud and camera poses.
 
 ## Build Environment
-Best on Ubuntu 16.04 and above.
+Ubuntu 18.04 and above (because of the versions of apt installed libraries).
 
 ## Build Commands
 1. Apt install dependencies

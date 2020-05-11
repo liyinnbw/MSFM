@@ -490,7 +490,7 @@ void ProjectIO::readProject(	const string			&fname,
 				n["imgIdx"]		>> imgIdx;
 				n["imgRoot"]	>> imgRoot;
 				n["imgName"]	>> imgName;
-				Frame::Ptr frame(new Frame(imgIdx, imgRoot, imgName));
+				Frame::Ptr frame = make_shared<Frame>(imgIdx, imgRoot, imgName);
 				n["fixed"]		>> frame->fixed;
 				Mat m;
 				n["cvtransform"]>> m;
@@ -539,7 +539,7 @@ void ProjectIO::readProject(	const string			&fname,
 				Point3f pt;
 				n>>pt;
 				Vector3d pt_eigen(pt.x, pt.y, pt.z);
-				LandMark::Ptr lm(new LandMark(pt_eigen));
+				LandMark::Ptr lm = make_shared<LandMark>(pt_eigen);
 				data.addLandMark(lm);
 				idx2landmark[lmkIdx] = lm;
 			}
@@ -556,7 +556,7 @@ void ProjectIO::readProject(	const string			&fname,
 				n["imgIdx"]		>> imgIdx;
 				n["featureIdx"]	>> featureIdx;
 				n["landmarkIdx"]>> lmkIdx;
-				Measurement::Ptr m(new Measurement(idx2frame[imgIdx], featureIdx, idx2landmark[lmkIdx]));
+				Measurement::Ptr m = make_shared<Measurement>(idx2frame[imgIdx], featureIdx, idx2landmark[lmkIdx]);
 				//cout<<m->toString()<<endl;
 				data.addMeasurement(m);
 			}
@@ -637,7 +637,7 @@ void ProjectIO::readProject(	const string			&fname,
 						}
 						imgNames.push_back(imgName);
 						//assume sequential image idx
-						Frame::Ptr frame(new Frame(i, imgRoot, imgName));
+						Frame::Ptr frame = make_shared<Frame>(i, imgRoot, imgName);
 						frame->rotation = Quaterniond(qw,qx,qy,qz);
 						frame->rotation.normalize();
 						frame->position = Vector3d(t0, t1, t2);
@@ -712,7 +712,7 @@ void ProjectIO::readProject(	const string			&fname,
 							int measurementCnt;
 							iss2>>x>>y>>z>>r>>g>>b>>measurementCnt;
 							Vector3d 		pt(x,y,z);
-							LandMark::Ptr 	lm(new LandMark(pt));
+							LandMark::Ptr 	lm = make_shared<LandMark>(pt);
 							data.addLandMark(lm);
 							//measurements
 							while(measurementCnt-->0){
@@ -769,8 +769,7 @@ void ProjectIO::readProject(	const string			&fname,
 							assert(frame->kpts.size() == kptsCnt);
 
 							for(unsigned int j = 0; j<kptsCnt; ++j){
-								Measurement::Ptr m(new Measurement(frame,j,kpts[j].second));
-								data.addMeasurement(m);
+								data.addMeasurement(make_shared<Measurement>(frame,j,kpts[j].second));
 							}
 						}
 
@@ -824,7 +823,7 @@ void ProjectIO::readProject(	const string			&fname,
 			ss<<"img_"<<i;
 			string imgName				= ss.str();
 			imgNames.push_back(imgName);
-			Frame::Ptr frame(new Frame(i,imgRoot,imgName));
+			Frame::Ptr frame = make_shared<Frame>(i,imgRoot,imgName);
 			idx2frame[i] = frame;
 			Vector3d 	&position 		= frame->position;
 			Quaterniond	&rotation		= frame->rotation;
@@ -856,7 +855,7 @@ void ProjectIO::readProject(	const string			&fname,
 		int landmarkCnt;
 		infile>>landmarkCnt;
 		for(unsigned int i=0; i<landmarkCnt; i++){
-			LandMark::Ptr lm(new LandMark());
+			LandMark::Ptr lm = make_shared<LandMark>();
 			idx2landmark[i] 			= lm;
 			Vector3d	&point			= lm->pt;
 			infile	>>point[0]>>point[1]>>point[2];
@@ -870,8 +869,7 @@ void ProjectIO::readProject(	const string			&fname,
 		for(unsigned int i=0; i<measureCnt; i++){
 			int frameIdx, featureIdx, landmarkIdx;
 			infile>>frameIdx>>featureIdx>>landmarkIdx;
-			Measurement::Ptr m(new Measurement(idx2frame[frameIdx],featureIdx, idx2landmark[landmarkIdx]));
-			data.addMeasurement(m);
+			data.addMeasurement(make_shared<Measurement>(idx2frame[frameIdx],featureIdx, idx2landmark[landmarkIdx]));
 		}
 		cout<<measureCnt<<" measurements read"<<endl;
 

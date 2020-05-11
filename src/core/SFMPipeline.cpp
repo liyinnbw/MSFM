@@ -93,8 +93,8 @@ void SFMPipeline::getNextPair(	int &imgIdx1, 	//from
 			for(int tryIdx=anchorIdx+1; tryIdx<imgNames.size(); tryIdx++){
 				cout<<" trying ["<<anchorIdx<<"]->["<<tryIdx<<"]"<<endl;
 
-				Frame::Ptr anchorFrame(new Frame(anchorIdx,imgRoot,imgNames[anchorIdx]));
-				Frame::Ptr tryFrame(new Frame(tryIdx,imgRoot,imgNames[tryIdx]));
+				Frame::Ptr anchorFrame = make_shared<Frame>(anchorIdx,imgRoot,imgNames[anchorIdx]);
+				Frame::Ptr tryFrame = make_shared<Frame>(tryIdx,imgRoot,imgNames[tryIdx]);
 
 				//compute features & descriptors
 				anchorFrame->init();
@@ -126,7 +126,7 @@ void SFMPipeline::getNextPair(	int &imgIdx1, 	//from
 		for(int tryIdx = anchorIdx+1; tryIdx < imgNames.size(); tryIdx++){
 			cout<<" trying ["<<tryIdx<<"]->["<<anchorIdx<<"]"<<endl;
 
-			Frame::Ptr tryFrame(new Frame(tryIdx,imgRoot,imgNames[tryIdx]));
+			Frame::Ptr tryFrame = make_shared<Frame>(tryIdx,imgRoot,imgNames[tryIdx]);
 
 			//compute features & descriptors
 			tryFrame->init();
@@ -280,9 +280,9 @@ bool SFMPipeline::reconstructBasePair(	const int				imgIdx1,	//this will have id
 
 	time = clock();
 
-	Frame::Ptr frame1(new Frame(imgIdx1, imgRoot, imgNames[imgIdx1]));
+	Frame::Ptr frame1 = make_shared<Frame>(imgIdx1, imgRoot, imgNames[imgIdx1]);
 	frame1->fixed = true;	//frame 1 use as reference and pose not changed
-	Frame::Ptr frame2(new Frame(imgIdx2, imgRoot, imgNames[imgIdx2]));
+	Frame::Ptr frame2 = make_shared<Frame>(imgIdx2, imgRoot, imgNames[imgIdx2]);
 
 	frame1->init();
 	frame2->init();
@@ -411,13 +411,10 @@ bool SFMPipeline::reconstructBasePair(	Frame::Ptr 						&frame1,	//this will hav
 		unsigned int val = (unsigned int)inliers.at<uchar>(i);
 		if(val){
 			Vector3d pt(pts3D[i].x, pts3D[i].y, pts3D[i].z);
-			LandMark::Ptr lm(new LandMark(pt));
+			LandMark::Ptr lm = make_shared<LandMark>(pt);
 			lms.push_back(lm);
-
-			Measurement::Ptr m1(new Measurement(frame1, prunedMatches[i].queryIdx, lm));
-			Measurement::Ptr m2(new Measurement(frame2, prunedMatches[i].trainIdx, lm));
-			ms.push_back(m1);
-			ms.push_back(m2);
+			ms.push_back(make_shared<Measurement>(frame1, prunedMatches[i].queryIdx, lm));
+			ms.push_back(make_shared<Measurement>(frame2, prunedMatches[i].trainIdx, lm));
 		}
 	}
 	//check if enough triangulation results
@@ -938,10 +935,12 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 		if(!m1 && !m2){
 			matchesForTriangulation.push_back(*it);
 		}else if(m1){
-			m2.reset(new Measurement(frame2, it->trainIdx, m1->landmark));
+			m2.reset();
+			m2 = make_shared<Measurement>(frame2, it->trainIdx, m1->landmark);
 			newMs.push_back(m2);
 		}else if(m2){
-			m1.reset(new Measurement(frame1, it->queryIdx, m2->landmark));
+			m1.reset();
+			m1 = make_shared<Measurement>(frame1, it->queryIdx, m2->landmark);
 			newMs.push_back(m1);
 		}else{
 			//both point is measured but not to the same landmark
@@ -975,13 +974,10 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 		unsigned char val = inliers.at<unsigned char>(i);
 		if(val){
 			Vector3d pt(pts3D[i].x, pts3D[i].y, pts3D[i].z);
-			LandMark::Ptr lm(new LandMark(pt));
+			LandMark::Ptr lm = make_shared<LandMark>(pt);
 			newLms.push_back(lm);
-
-			Measurement::Ptr m1(new Measurement(frame1, matchesForTriangulation[i].queryIdx, lm));
-			Measurement::Ptr m2(new Measurement(frame2, matchesForTriangulation[i].trainIdx, lm));
-			newMs.push_back(m1);
-			newMs.push_back(m2);
+			newMs.push_back(make_shared<Measurement>(frame1, matchesForTriangulation[i].queryIdx, lm));
+			newMs.push_back(make_shared<Measurement>(frame2, matchesForTriangulation[i].trainIdx, lm));
 		}
 	}
 
@@ -1450,8 +1446,7 @@ SFMPipeline::positionFrame		(	Frame::Ptr				&frame,			//frame can be either adde
 		unprunedMs.swap(existingMs);	//swap content of vectors without copying
 
 		for(map<LandMark::Ptr, DMatch, Data::LandMarkPtrCompare>::iterator it = lm2match.begin(); it!=lm2match.end(); ++it){
-			Measurement::Ptr m(new Measurement(frame,it->second.queryIdx, it->first));
-			unprunedMs.push_back(m);
+			unprunedMs.push_back(make_shared<Measurement>(frame,it->second.queryIdx, it->first));
 		}
 
 	}else{
@@ -1464,8 +1459,7 @@ SFMPipeline::positionFrame		(	Frame::Ptr				&frame,			//frame can be either adde
 		}
 
 		for(map<LandMark::Ptr, DMatch, Data::LandMarkPtrCompare>::iterator it = lm2match.begin(); it!=lm2match.end(); ++it){
-			Measurement::Ptr m(new Measurement(frame,it->second.queryIdx, it->first));
-			unprunedMs.push_back(m);
+			unprunedMs.push_back(make_shared<Measurement>(frame,it->second.queryIdx, it->first));
 		}
 	}
 
@@ -1827,7 +1821,7 @@ bool SFMPipeline::positionAndAddFrame(	Frame::Ptr				&frame)
 bool SFMPipeline::positionAndAddFrame(	const int 				imgIdx){
 	cout<<"(opencv) position and add ["<<imgIdx<<"]"<<imgNames[imgIdx]<<endl;
 	assert(!data.getFrame(imgIdx));
-	Frame::Ptr frame(new Frame(imgIdx, imgRoot, imgNames[imgIdx]));
+	Frame::Ptr frame = make_shared<Frame>(imgIdx, imgRoot, imgNames[imgIdx]);
 	frame->init();
 	return positionAndAddFrame(frame);
 }
@@ -2725,8 +2719,7 @@ SFMPipeline::getMoreMeasuresByProjection(	const Frame::Ptr 				&frame1,			//fram
 	}
 
 	for(map<LandMark::Ptr, DMatch, Data::LandMarkPtrCompare>::iterator it = lm2match.begin(); it!=lm2match.end(); ++it){
-		Measurement::Ptr m(new Measurement(frame1,it->second.queryIdx, it->first));
-		newMs.push_back(m);
+		newMs.push_back(make_shared<Measurement>(frame1,it->second.queryIdx, it->first));
 	}
 	t_matching = double(clock()-time) / CLOCKS_PER_SEC;
 	cout<<"found "<<newMs.size()<<" new measures"<<endl;
@@ -2899,8 +2892,7 @@ SFMPipeline::getMeasuresByProjection(	const Frame::Ptr 					&frame,
 
 	for(unsigned int i=0; i<kptCnt; i++){
 		if(kpt2match[i]!=nullptr){
-			Measurement::Ptr m(new Measurement(frame, kpt2match[i]->queryIdx, otherFramesMs[kpt2match[i]->trainIdx]->landmark));
-			newMs.push_back(m);
+			newMs.push_back(make_shared<Measurement>(frame, kpt2match[i]->queryIdx, otherFramesMs[kpt2match[i]->trainIdx]->landmark));
 			delete kpt2match[i];
 			kpt2match[i] = nullptr;
 		}
