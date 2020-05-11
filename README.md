@@ -5,14 +5,15 @@
 This tool enables user to load a sequence of images and do sparse 3D point cloud reconstruction.
 
 ## Key Features
-1. Visualization of keypoint matches between pair of images.
-2. Allow user to manually remove bad matches before reconstruction (which automated softwares do not offer).
-3. Auto recommend next pair of images to match.
-4. Bundle adjustment.
-5. Visualization of reconstructed point cloud and camera poses.
+1. Break structure from motion workflow into steps which helps inspection/understanding (not offered by most similar softwares).
+2. Free to choose images to match but can also auto recommend next pair of images to match.
+3. Visualization of reconstructed point cloud and camera poses.
+4. Visualization of keypoint matches between pair of images used for reconstructing the 3D scene.
+5. Visualization of backprojected 3D points onto images.
+6. Visualization of epiplar line.
 
 ## Build Environment
-Ubuntu 18.04 and above (because of the versions of apt installed libraries).
+Ubuntu 18.04 and above (due to the required versions of apt installed libraries).
 
 ## Build Commands
 1. Apt install dependencies
