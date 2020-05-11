@@ -352,12 +352,6 @@ bool SFMPipeline::reconstructBasePair(	Frame::Ptr 						&frame1,	//this will hav
 	Mat 				E, inliers;
 	E = findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
 
-	//inliers is both input and output.
-	//input is from previous step.
-	//output is to keep previous inliers that passed cheiralityCheck.
-	Mat					R,t;
-	recoverPose(E, pts1, pts2, R, t, f, pp, inliers);
-
 	//check if enough inliers
 	int inlierCnt = countNonZero(inliers);
 	if( inlierCnt < MIN_BASE_TRIANGULATE){
@@ -372,6 +366,14 @@ bool SFMPipeline::reconstructBasePair(	Frame::Ptr 						&frame1,	//this will hav
 			prunedMatches.push_back(matches[i]);
 		}
 	}
+
+	//inliers is both input and output.
+	//input is from previous step.
+	//Although output supposed to be those passed cheiralityCheck, 
+	//experiment shows the inlier exclude too many good triangulations points in front of camera
+	// so I'll avoid using the inlier to do futher pruning
+	Mat					R,t;
+	recoverPose(E, pts1, pts2, R, t, f, pp, inliers);
 
 	//set camera pose, leave frame1's pose as default
 	frame1->fixed = true;
@@ -901,7 +903,6 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 {
 	cout<<"add more landmarks between ["<<frame1->imgIdx<<"]"<<" & ["<<frame2->imgIdx<<"]"<<endl;
 	clock_t				time;
-	double				t_epipolarSearch;
 	double				t_match;
 	double				t_triangulate;
 	double 				t_postprocess;
@@ -910,20 +911,38 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 	vector<LandMark::Ptr>	 newLms;
 
 	time = clock();
-	Mat mask12, mask21;
-	epipolarConstrainedMatchMask(frame1->imgIdx, frame2->imgIdx, mask12);
-	epipolarConstrainedMatchMask(frame2->imgIdx, frame1->imgIdx, mask21);
 
-	if(mask12.empty() || mask21.empty()){
-		cout<<"no more landmarks and measures to add between ["<<frame1->imgIdx<<"]"<<" & ["<<frame2->imgIdx<<"]"<<endl;
-		return;
+	//robustly get good matches between two images{
+	// cout<<">>>>>>>>>>>>>>>>>>>>>>"<<endl;
+	//step1: get matches which are bidirectional and much better than second candidate match
+	vector<DMatch> raw_matches;
+	matchFeatures(frame1->decs, frame2->decs, raw_matches);
+		//step1 (alternative): since we already have pose prior, we can constain our match along epipolar line
+		//but this actually produce quite a lot of false matches, so abandoned, just document it here {
+		// Mat mask12, mask21;
+		// epipolarConstrainedMatchMask(frame1->imgIdx, frame2->imgIdx, mask12);
+		// epipolarConstrainedMatchMask(frame2->imgIdx, frame1->imgIdx, mask21);
+		// if(! (mask12.empty() || mask21.empty()) ){
+		// 	matchFeatures(frame1->decs, frame2->decs, raw_matches, mask12, mask21);
+		// }
+		//}
+	//step2: find essential matrix and prune matches by inliers
+	vector<Point2f> 	pts1, pts2;
+	Utils::Matches2Points(frame1->kpts,frame2->kpts,raw_matches,pts1,pts2);
+	double f = Camera::GetInstance().getCamFocal();
+	Point2d pp = Camera::GetInstance().getCamPrinciple();
+	Mat 				E, inliers;
+	E = findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
+	// cout<<"("<<inliers.rows<<','<<inliers.cols<<")"<<countNonZero(inliers)<<endl;
+	vector<DMatch> 		matches;
+	for(int i=0; i<inliers.rows; i++){
+		unsigned int val = (unsigned int)inliers.at<uchar>(i);
+		if(val){
+			matches.push_back(raw_matches[i]);
+		}
 	}
-	t_epipolarSearch = double(clock()-time) / CLOCKS_PER_SEC;
-
-	time = clock();
-	//match features
-	vector<DMatch> matches;
-	matchFeatures(frame1->decs, frame2->decs, matches, mask12, mask21);
+	// cout<<"<<<<<<<<<<<<<<<<<<<<<<<<<"<<endl;
+	//}
 
 	vector<DMatch> matchesForTriangulation;
 
@@ -932,52 +951,60 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 	for(vector<DMatch>::iterator it = matches.begin(); it!=matches.end(); ++it){
 		Measurement::Ptr m1 = data.getMeasurement(frame1, it->queryIdx);
 		Measurement::Ptr m2 = data.getMeasurement(frame2, it->trainIdx);
-		if(!m1 && !m2){
-			matchesForTriangulation.push_back(*it);
+		if(m1 && m2){
+			//both points are measured, ignore
 		}else if(m1){
-			m2.reset();
-			m2 = make_shared<Measurement>(frame2, it->trainIdx, m1->landmark);
-			newMs.push_back(m2);
+			//frame 1 feature has a measure, frame 2 feature has no measure
+			if ( !(data.getMeasurement(m1->landmark, frame2)) ){
+				//frame 1 feature's measured landmark has no other measure in frame 2
+				m2.reset();
+				m2 = make_shared<Measurement>(frame2, it->trainIdx, m1->landmark);
+				newMs.push_back(m2);
+			}
 		}else if(m2){
-			m1.reset();
-			m1 = make_shared<Measurement>(frame1, it->queryIdx, m2->landmark);
-			newMs.push_back(m1);
+			//frame 2 feature has a measure, frame 1 feature has no measure
+			if ( !(data.getMeasurement(m2->landmark, frame1)) ){
+				//frame 2 feature's measured landmark has no other measure in frame 1
+				m1.reset();
+				m1 = make_shared<Measurement>(frame1, it->queryIdx, m2->landmark);
+				newMs.push_back(m1);
+			}
+			
 		}else{
-			//both point is measured but not to the same landmark
-			//ignore
+			matchesForTriangulation.push_back(*it);
 		}
 	}
 	t_match = double(clock()-time) / CLOCKS_PER_SEC;
 
 	cout<<"matches="<<matches.size()<<" for triangulation="<<matchesForTriangulation.size()<<" new measurements="<<newMs.size()<<endl;
-	if(matches.empty()){
-		cout<<"no more landmarks and measures to add between ["<<frame1->imgIdx<<"]"<<" & ["<<frame2->imgIdx<<"]"<<endl;
-		return;
-	}
+	// if(matches.empty()){
+	// 	cout<<"no more landmarks and measures to add between ["<<frame1->imgIdx<<"]"<<" & ["<<frame2->imgIdx<<"]"<<endl;
+	// 	return;
+	// }
 
 	time = clock();
-	vector<KeyPoint> 	&kpts1 = frame1->kpts;
-	vector<KeyPoint> 	&kpts2 = frame2->kpts;
-	vector<Point2f> 	pts1, pts2;
-	Utils::Matches2Points(kpts1, kpts2, matchesForTriangulation, pts1, pts2);
-	vector<Point3f>		pts3D;
-	Mat 				inliers;
-	Matx34d	P1			= frame1->getCVTransform();
-	Matx34d	P2			= frame2->getCVTransform();
-	triangulate(pts1,pts2,P1,P2,pts3D,inliers);
+	if (!matchesForTriangulation.empty()){
+		// vector<Point2f> 	pts1, pts2;
+		Utils::Matches2Points(frame1->kpts, frame2->kpts, matchesForTriangulation, pts1, pts2);
+		vector<Point3f>		pts3D;
+		// Mat 				inliers;
+		Matx34d	P1			= frame1->getCVTransform();
+		Matx34d	P2			= frame2->getCVTransform();
+		triangulate(pts1,pts2,P1,P2,pts3D,inliers);
 
-	assert(pts1.size() == inliers.cols);
-	assert(inliers.type() == 0);	//unsigned char 8U
-	vector<LandMark::Ptr> lms;
-	vector<Measurement::Ptr> ms;
-	for(unsigned int i = 0; i<inliers.cols; i++){	//unlike essential mat, inliers are stored in columns rather than rows
-		unsigned char val = inliers.at<unsigned char>(i);
-		if(val){
-			Vector3d pt(pts3D[i].x, pts3D[i].y, pts3D[i].z);
-			LandMark::Ptr lm = make_shared<LandMark>(pt);
-			newLms.push_back(lm);
-			newMs.push_back(make_shared<Measurement>(frame1, matchesForTriangulation[i].queryIdx, lm));
-			newMs.push_back(make_shared<Measurement>(frame2, matchesForTriangulation[i].trainIdx, lm));
+		assert(pts1.size() == inliers.cols);
+		assert(inliers.type() == 0);	//unsigned char 8U
+		vector<LandMark::Ptr> lms;
+		vector<Measurement::Ptr> ms;
+		for(unsigned int i = 0; i<inliers.cols; i++){	//unlike essential mat, inliers are stored in columns rather than rows
+			unsigned char val = inliers.at<unsigned char>(i);
+			if(val){
+				Vector3d pt(pts3D[i].x, pts3D[i].y, pts3D[i].z);
+				LandMark::Ptr lm = make_shared<LandMark>(pt);
+				newLms.push_back(lm);
+				newMs.push_back(make_shared<Measurement>(frame1, matchesForTriangulation[i].queryIdx, lm));
+				newMs.push_back(make_shared<Measurement>(frame2, matchesForTriangulation[i].trainIdx, lm));
+			}
 		}
 	}
 
@@ -992,7 +1019,6 @@ void SFMPipeline::addMoreLandMarksAndMeasures(	Frame::Ptr				&frame1,	//both ima
 	}
 	t_postprocess = double(clock()-time) / CLOCKS_PER_SEC;
 
-	cout<<"Time(s) epipolar search   = "<<t_epipolarSearch<<endl;
 	cout<<"Time(s) match             = "<<t_match<<endl;
 	cout<<"Time(s) triangulate       = "<<t_triangulate<<endl;
 	cout<<"Time(s) postprocess       = "<<t_postprocess<<endl;
