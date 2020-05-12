@@ -136,8 +136,8 @@ void MatchPanel::handleImagesUsed(std::vector<int> &usedImgIdxs){
 		imgList2->setItemData(i, QColor(0, 0, 0), Qt::TextColorRole);
 	}
 	for(int i=0; i<usedImgIdxs.size(); i++){
-		imgList1->setItemData(usedImgIdxs[i]+1, QColor(0, 255, 255), Qt::TextColorRole);
-		imgList2->setItemData(usedImgIdxs[i]+1, QColor(0, 255, 255), Qt::TextColorRole);
+		imgList1->setItemData(usedImgIdxs[i]+1, QColor(0, 0, 255), Qt::TextColorRole);
+		imgList2->setItemData(usedImgIdxs[i]+1, QColor(0, 0, 255), Qt::TextColorRole);
 	}
 
 }

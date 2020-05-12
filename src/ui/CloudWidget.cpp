@@ -238,8 +238,8 @@ CloudWidget:: CloudWidget(QWidget *parent)
   
   // Create a mapper and actor
   mapper = vtkPolyDataMapper::New();
-  //mapper->ScalarVisibilityOff();
-  mapper->ScalarVisibilityOn(); //default on, if off, scalar color will not be applied, all geometry will be white
+  mapper->ScalarVisibilityOff();
+//   mapper->ScalarVisibilityOn(); //default on, if off, scalar color will not be applied, all geometry will be white
   actor = vtkActor::New();
   actor->SetMapper(mapper);
   
