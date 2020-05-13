@@ -157,9 +157,6 @@ bool SFMPipeline::checkMatchesBasePair(	const std::vector<cv::Point2f> 	&kpts1,
 	}
 
 	vector<Point2f> 	pts1, pts2;
-	Mat 				E, R, rvec, t, inliers;
-	int 				nonzeroCnt;
-
 	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
 
 	//check homography
@@ -181,11 +178,12 @@ bool SFMPipeline::checkMatchesBasePair(	const vector<KeyPoint> 	&kpts1,
 										const vector<KeyPoint> 	&kpts2,
 										const vector<DMatch> 	&matches)
 {
+	if (kpts1.size()<MIN_5PTALGO || kpts2.size()<MIN_5PTALGO){
+		cout<<" too few feature points, target: "<<MIN_5PTALGO<<endl;
+		return false;
+	}
 
 	vector<Point2f> 	pts1, pts2;
-	Mat 				E, R, rvec, t, inliers;
-	int 				nonzeroCnt;
-
 	Utils::Matches2Points(kpts1,kpts2,matches,pts1,pts2);
 
 	//check homography
@@ -200,44 +198,6 @@ bool SFMPipeline::checkMatchesBasePair(	const vector<KeyPoint> 	&kpts1,
 		cout<<" too few matches for essential mat: "<<matches.size()<<" target: "<<MIN_5PTALGO<<endl;
 		return false;
 	}
-	/*
-	//get camera intrinsics
-	double f = Camera::GetInstance().getCamFocal();
-	Point2d pp = Camera::GetInstance().getCamPrinciple();
-
-	cout<<f<<endl;
-	cout<<pp<<endl;
-	cout<<"points used for essential mat "<<pts1.size()<<endl;
-	//prune by fundamental mat
-	E = findEssentialMat(pts1, pts2, f, pp, RANSAC, 0.999, 1.0, inliers);
-	nonzeroCnt = countNonZero(inliers);
-
-	cout<<E.rows<<endl;
-	cout<<nonzeroCnt<<endl;
-
-	//check if have sufficient matches left
-	if(nonzeroCnt<MIN_MATCHES){
-		cout<<" too few matches for recover pose: "<<nonzeroCnt<<" target: "<<MIN_MATCHES<<endl;
-		return false;
-	}
-
-	cout<<"before recover pose"<<endl;
-
-	//prune by recover pose
-	//inliers is both input and output.
-	//input is from previous step.
-	//output is to prune those failed cheiralityCheck.
-	recoverPose(E, pts1, pts2, R, t, f, pp);//, inliers);
-
-	cout<<"after recover pose"<<endl;
-	nonzeroCnt = countNonZero(inliers);
-
-	if(nonzeroCnt<MIN_TRIANGULATE){
-		cout<<" too few points for triangulation: "<<nonzeroCnt<<" target: "<<MIN_TRIANGULATE<<endl;
-		return false;
-	}
-
-	cout<<"matches will be triangulated = "<<nonzeroCnt<<endl;*/
 	return true;
 }
 
@@ -252,23 +212,7 @@ bool SFMPipeline::checkMatchesNextPair(		const int				imgIdx1,	//new
 		return false;
 	}
 
-	vector<Point2f> pts1, pts2;
-	Utils::Matches2Points(kpts1,kpts2,matches,pts2,pts1);
-
-	//check homography
-	double hInlier = FindHomographyInliers(pts1,pts2);
-	if(hInlier > HINLIER_THRESH){
-		cout<<" too much homography inliers: "<<hInlier<<" target: "<<HINLIER_THRESH<<endl;
-		return false;
-	}
-
-	//check minimum matches for 5 point algo
-	if(matches.size() < MIN_5PTALGO){
-		cout<<" too few matches for essential mat: "<<matches.size()<<" target: "<<MIN_5PTALGO<<endl;
-		return false;
-	}
-
-	return true;
+	return checkMatchesBasePair(kpts1, kpts2, matches);
 }
 
 //should only be called after checkMatchesBasePair
@@ -1846,7 +1790,10 @@ bool SFMPipeline::positionAndAddFrame(	Frame::Ptr				&frame)
 
 bool SFMPipeline::positionAndAddFrame(	const int 				imgIdx){
 	cout<<"(opencv) position and add ["<<imgIdx<<"]"<<imgNames[imgIdx]<<endl;
-	assert(!data.getFrame(imgIdx));
+	if(data.getFrame(imgIdx)){
+		cout<<"frame was already added"<<endl;
+		return false;
+	}
 	Frame::Ptr frame = make_shared<Frame>(imgIdx, imgRoot, imgNames[imgIdx]);
 	frame->init();
 	return positionAndAddFrame(frame);

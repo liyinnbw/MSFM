@@ -259,10 +259,10 @@ void EpipolarPanel::handleImageView1PointMarked(const QList<QPointF> &pts){
 	QList<QPointF> lines;
 	lines.push_back(QPointF(p1[0],p1[1]));
 	lines.push_back(QPointF(p2[0],p2[1]));
-	lines.push_back(QPointF(0,yMin2));
-	lines.push_back(QPointF(1980,yMin2));
-	lines.push_back(QPointF(0,yMax2));
-	lines.push_back(QPointF(1980,yMax2));
+	// lines.push_back(QPointF(0,yMin2));
+	// lines.push_back(QPointF(1980,yMin2));
+	// lines.push_back(QPointF(0,yMax2));
+	// lines.push_back(QPointF(1980,yMax2));
 	imageView2->setLines(lines);
 }
 
