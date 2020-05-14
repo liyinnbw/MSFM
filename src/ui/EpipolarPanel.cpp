@@ -243,18 +243,28 @@ void EpipolarPanel::handleImageView1PointMarked(const QList<QPointF> &pts){
 
 	QList<QPointF> candidateFeatures;
 
-	//create mask to be used for matching
-	for(unsigned int j =feIdxStart; j<feIdxEnd; j++){
-		Point2f &pt	= frame2->kpts[j].pt;
-		//skip if not between the horizontal range
-		if(pt.x<xMin2 || pt.x>xMax2) continue;
-		double dist = std::fabs(diff[1]*pt.x - diff[0]*pt.y+term3)/diffNorm;
-		//skip if not along epipolar line
-		if(dist<=EPIPOLAR_SEARCH_PIXEL_THRESH){
-			candidateFeatures.push_back(QPointF(pt.x, pt.y));
+	QList<bool> img2Mask;
+	for(int i=0; i<frame2->kpts.size(); i++){
+		if(i>=feIdxStart && i<feIdxEnd){
+			Point2f &pt	= frame2->kpts[i].pt;
+			//skip if not between the horizontal range
+			if(pt.x<xMin2 || pt.x>xMax2){
+				img2Mask.push_back(false);
+				continue;
+			};
+			double dist = std::fabs(diff[1]*pt.x - diff[0]*pt.y+term3)/diffNorm;
+			//skip if not along epipolar line
+			if(dist<=EPIPOLAR_SEARCH_PIXEL_THRESH){
+				img2Mask.push_back(true);
+			}else{
+				img2Mask.push_back(false);
+			}
+		}else{
+			img2Mask.push_back(false);
 		}
 	}
-	imageView2->setMarks(candidateFeatures);
+	
+	imageView2->setMask(img2Mask);
 
 	QList<QPointF> lines;
 	lines.push_back(QPointF(p1[0],p1[1]));
@@ -270,6 +280,7 @@ void EpipolarPanel::handleImageView1PointSelected(const int idx){
 	imageView1->setSelected(idx);
 
 	QList<bool> img2Mask;
+	imageView2->setLines(QList<QPointF>());
 
 	Data &data = Data::GetInstance();
 	Camera &camera = Camera::GetInstance();
@@ -285,7 +296,7 @@ void EpipolarPanel::handleImageView1PointSelected(const int idx){
 		return;
 	}
 
-	int searchRadius = 100;
+	int searchRadius = 20;
 	if(frame1->measured[idx]){
 		//the point has a measure, project the 3d point to frame2
 		const Measurement::Ptr &m = data.getMeasurement(frame1,idx);
@@ -339,7 +350,10 @@ void EpipolarPanel::handleImageView1PointSelected(const int idx){
 		imageView2->setRect(QRect(xMin, yMin, xMax-xMin, yMax-yMin));
 
 	}else{
-
+		const Point2d &pt = frame1->kpts[idx].pt;
+		QList<QPointF> qpts;
+		qpts.push_back(QPointF(pt.x, pt.y));
+		handleImageView1PointMarked(qpts);
 	}
 }
 

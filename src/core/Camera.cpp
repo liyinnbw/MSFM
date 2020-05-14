@@ -40,7 +40,7 @@ Camera::getBearingVector(		const KeyPoint			&kpt)
 Vector2d
 Camera::project(				const Vector3d			&ptCam)		//3d point in camera coordinate
 {
-	assert(ptCam[2]>=0.9);	//by right should be 1, but sometimes due to rounding, 1 is not obtainable
+	//assert(ptCam[2]>=0.9);	//by right should be 1, but sometimes due to rounding, 1 is not obtainable
 	Point2d pp 	= getCamPrinciple();
 	double f	= getCamFocal();
 	double mul 	= f/ptCam[2];
