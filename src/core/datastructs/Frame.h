@@ -10,6 +10,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <numeric>
 #include <Eigen/Eigen>
 
 #include <opencv2/opencv.hpp>
@@ -38,22 +39,23 @@ class Frame {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW	//this is necessary to prevent crash when "new" class containing eigen object fields
 	typedef std::shared_ptr<Frame> Ptr;
-	static bool KeyPointComparator(const cv::KeyPoint &i, const cv::KeyPoint &j)
-	{
+	// static bool KeyPointComparator(const cv::KeyPoint &i, const cv::KeyPoint &j)
+	// {
+	// 	if(i.pt.y==j.pt.y){return i.pt.x<j.pt.x;}
+	// 	return i.pt.y<j.pt.y;
+	// 	// if(i.pt.y<j.pt.y){
+	// 	// 	return true;
+	// 	// }else if(i.pt.y>j.pt.y){
+	// 	// 	return false;
+	// 	// }else{
+	// 	// 	if(i.pt.x<j.pt.x){
+	// 	// 		return true;
+	// 	// 	}else{
+	// 	// 		return false;
+	// 	// 	}
+	// 	// }
 
-		if(i.pt.y<j.pt.y){
-			return true;
-		}else if(i.pt.y>j.pt.y){
-			return false;
-		}else{
-			if(i.pt.x<j.pt.x){
-				return true;
-			}else{
-				return false;
-			}
-		}
-
-	}
+	// }
 
 	//video frame constructer
 	Frame(const cv::Mat &img, const long time)
@@ -113,24 +115,16 @@ public:
 		DetectorExtractor &deAlgo = DetectorExtractor::GetInstance();
 		if(algo == ORB){
 			deAlgo.detectORB(tmpImg, kpts);
+			deAlgo.computeORB(tmpImg, kpts, decs); //note kpts order and even count may change from previous line. 
 		}
 		if(algo == BRISK){
 			deAlgo.detectBRISK(tmpImg, kpts);
+			deAlgo.computeBRISK(tmpImg, kpts, decs); //note kpts order and even count may change from previous line.
 		}
 
 		sortFeatures();
-
-		if(algo == ORB){
-			deAlgo.computeORB(tmpImg, kpts, decs);
-		}
-		if(algo == BRISK){
-			//XXX: brisk describe will dsicard undescribable kpts
-			deAlgo.computeBRISK(tmpImg, kpts, decs);
-		}
-
 		makeLUT(tmpImg.rows);
 		resetMeasures();
-
 
 	}
 
@@ -156,11 +150,41 @@ public:
 		resetMeasures();
 	}
 
+	// sort feature points to allow faster search by (x,y)
+	// sort both kpts and decs while keeping their correspondences
 	inline void sortFeatures(){
-		std::sort(kpts.begin(),kpts.end(), KeyPointComparator);
-		//for(int i=0; i<kpts.size(); i++){
-		//	std::cout<<"["<<i<<"]"<<kpts[i].pt<<std::endl;
-		//}
+		assert(kpts.size() == decs.rows);
+
+		//fill array starting with value 0
+		std::vector<size_t> idxs(kpts.size());
+		std::iota(idxs.begin(), idxs.end(), 0); 
+
+		//sort indices
+		std::vector<cv::KeyPoint> &mkpts = kpts; //you cannot pass member variable directly to lambda function, this is one way to circumvent
+		std::sort(idxs.begin(), idxs.end(), [&mkpts](size_t a, size_t b) {
+			//sort indices by non-decreasing feature point's y value
+			//if same y, sort by non-decreasing feature point's x value
+			if(mkpts[a].pt.y==mkpts[b].pt.y){return mkpts[a].pt.x<mkpts[b].pt.x;}
+			return mkpts[a].pt.y<mkpts[b].pt.y;
+		});
+		
+		//copy data to temp containers. Is there a non-copying solution?
+		std::vector<cv::KeyPoint> kpts_sorted;
+		kpts_sorted.reserve(kpts.size());
+		cv::Mat decs_sorted(decs.size(), decs.type());
+		size_t newIdx=0;
+		for(size_t const &i : idxs){
+			kpts_sorted.push_back(kpts[i]);
+			decs.row(i).copyTo(decs_sorted.row(newIdx)); 
+			newIdx++;
+		}
+
+		//swap original
+		kpts.swap(kpts_sorted);
+		decs=decs_sorted; //the underlying data not copied.
+
+		//std::sort(kpts.begin(),kpts.end(), KeyPointComparator);
+
 	}
 
 	//only create look up table, need to sanitize
