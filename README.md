@@ -11,6 +11,7 @@ This tool enables user to load a sequence of images and do sparse 3D point cloud
 4. Visualization of keypoint matches between pair of images used for reconstructing the 3D scene.
 5. Visualization of backprojected 3D points onto images.
 6. Visualization of epiplar line.
+7. Save and load reconstruction projects.
 
 ## Build Environment
 Ubuntu 18.04 and above (due to the required versions of apt installed libraries).
